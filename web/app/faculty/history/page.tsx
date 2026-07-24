@@ -105,6 +105,26 @@ export default function HistoryPage() {
     null,
   );
 
+  const [userDept, setUserDept] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchDepartment = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: profile } = await supabase
+        .from("users")
+        .select("department")
+        .eq("id", user.id)
+        .single();
+      if (profile?.department) {
+        setUserDept(profile.department);
+      }
+    };
+    fetchDepartment();
+  }, []);
+
   const fetchRequests = useCallback(async () => {
     setLoading(true);
 
@@ -145,10 +165,37 @@ export default function HistoryPage() {
 
     const { data, count } = await query.range(from, to);
 
-    setRequests((data as BorrowRequest[]) || []);
+    let result = (data as BorrowRequest[]) || [];
+
+    if (userDept && result.length > 0) {
+      const departmentEquipIds = new Set<string>();
+
+      const allEquipIds = new Set<string>();
+      result.forEach((req) => {
+        req.borrow_items?.forEach((bi) => {
+          if (bi.equipment_id) allEquipIds.add(bi.equipment_id);
+        });
+      });
+
+      if (allEquipIds.size > 0) {
+        const { data: deptEquip } = await supabase
+          .from("equipment")
+          .select("id")
+          .eq("department", userDept)
+          .in("id", [...allEquipIds]);
+
+        deptEquip?.forEach((e) => departmentEquipIds.add(e.id));
+      }
+
+      result = result.filter((req) =>
+        req.borrow_items?.some((bi) => departmentEquipIds.has(bi.equipment_id)),
+      );
+    }
+
+    setRequests(result);
     setTotalCount(count || 0);
     setLoading(false);
-  }, [dateFrom, dateTo, statusFilter, searchTerm, page]);
+  }, [dateFrom, dateTo, statusFilter, searchTerm, page, userDept]);
 
   const fetchStats = useCallback(async () => {
     const {
@@ -156,25 +203,20 @@ export default function HistoryPage() {
     } = await supabase.auth.getUser();
     if (!user) return;
 
+    const baseQuery = () =>
+      supabase
+        .from("borrow_requests")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", user.id);
+
     const [
       { count: total },
       { count: active },
       { count: returned },
     ] = await Promise.all([
-      supabase
-        .from("borrow_requests")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", user.id),
-      supabase
-        .from("borrow_requests")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", user.id)
-        .eq("status", "borrowed"),
-      supabase
-        .from("borrow_requests")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", user.id)
-        .eq("status", "returned"),
+      baseQuery(),
+      baseQuery().eq("status", "borrowed"),
+      baseQuery().eq("status", "returned"),
     ]);
 
     setStats({

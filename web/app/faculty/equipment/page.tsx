@@ -51,6 +51,25 @@ export default function FacultyEquipmentPage() {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [stats, setStats] = useState({ total: 0, available: 0, inUse: 0 });
+  const [userDept, setUserDept] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchDepartment = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: profile } = await supabase
+        .from("users")
+        .select("department")
+        .eq("id", user.id)
+        .single();
+      if (profile?.department) {
+        setUserDept(profile.department);
+      }
+    };
+    fetchDepartment();
+  }, []);
 
   const fetchEquipment = useCallback(async () => {
     setLoading(true);
@@ -60,6 +79,9 @@ export default function FacultyEquipmentPage() {
       .select("*, categories(name)")
       .order("name");
 
+    if (userDept) {
+      query = query.eq("department", userDept);
+    }
     if (categoryFilter !== "all") {
       query = query.eq("category_id", categoryFilter);
     }
@@ -72,7 +94,7 @@ export default function FacultyEquipmentPage() {
     const { data } = await query;
     setEquipment((data as Equipment[]) || []);
     setLoading(false);
-  }, [categoryFilter, search]);
+  }, [categoryFilter, search, userDept]);
 
   const fetchCategories = useCallback(async () => {
     const { data } = await supabase
@@ -83,22 +105,19 @@ export default function FacultyEquipmentPage() {
   }, []);
 
   const fetchStats = useCallback(async () => {
+    const buildQuery = () =>
+      userDept
+        ? supabase.from("equipment").select("*", { count: "exact", head: true }).eq("department", userDept)
+        : supabase.from("equipment").select("*", { count: "exact", head: true });
+
     const [
       { count: total },
       { count: available },
       { count: borrowed },
     ] = await Promise.all([
-      supabase
-        .from("equipment")
-        .select("*", { count: "exact", head: true }),
-      supabase
-        .from("equipment")
-        .select("*", { count: "exact", head: true })
-        .eq("status", "available"),
-      supabase
-        .from("equipment")
-        .select("*", { count: "exact", head: true })
-        .eq("status", "borrowed"),
+      buildQuery(),
+      buildQuery().eq("status", "available"),
+      buildQuery().eq("status", "borrowed"),
     ]);
 
     setStats({
@@ -106,7 +125,7 @@ export default function FacultyEquipmentPage() {
       available: available || 0,
       inUse: borrowed || 0,
     });
-  }, []);
+  }, [userDept]);
 
   useEffect(() => {
     fetchCategories();

@@ -1,526 +1,300 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  PackageCheck,
-  Clock,
-  Calendar,
-  ArrowRight,
-  Bell,
-} from "lucide-react";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  ResponsiveContainer,
-  Cell,
-  Tooltip,
-} from "recharts";
-
-const COLORS: Record<string, string> = {
-  pending: "#f59e0b",
-  approved: "#3b82f6",
-  borrowed: "#0ea5a0",
-  returned: "#10b981",
-  denied: "#ef4444",
-  rejected: "#ef4444",
-};
-
-function getStatusColor(status: string): string {
-  return COLORS[status] ?? "#8fa1b3";
-}
-
-const TODAY_LABEL = [
-  "Sunday",
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-][new Date().getDay()];
-
-interface StatCard {
-  label: string;
-  value: number;
-  icon: React.ElementType;
-  color: string;
-}
-
-interface BorrowChartItem {
-  status: string;
-  count: number;
-}
-
-interface CurrentBorrow {
-  id: string;
-  equipment: string;
-  borrowDate: string;
-  expectedReturn: string;
-  status: string;
-}
-
-interface NotificationItem {
-  id: string;
-  title: string;
-  message: string;
-  type: string;
-  created_at: string;
-  is_read: boolean;
-}
-
-interface ScheduleItem {
-  id: string;
-  subject: string;
-  room: string;
-  start_time: string;
-  end_time: string;
-}
+import { Microscope, CheckCircle, Clock, HandHelping, History, AlertTriangle } from "lucide-react";
+import Link from "next/link";
 
 export default function FacultyDashboardPage() {
-  const [fullName, setFullName] = useState("");
+  const supabase = createClient();
   const [loading, setLoading] = useState(true);
+  const [userName, setUserName] = useState("");
+  const [userDept, setUserDept] = useState("");
+  const [stats, setStats] = useState({ total: 0, available: 0, active: 0, faculty: 0, overdue: 0 });
+  const [recentBorrows, setRecentBorrows] = useState<any[]>([]);
+  const [categories, setCategories] = useState<{ name: string; count: number }[]>([]);
+  const [maxCat, setMaxCat] = useState(1);
+  const [notifications, setNotifications] = useState<any[]>([]);
 
-  const [stats, setStats] = useState<StatCard[]>([
-    { label: "Active Borrows", value: 0, icon: PackageCheck, color: "#0ea5a0" },
-    { label: "Pending Approvals", value: 0, icon: Clock, color: "#f59e0b" },
-    { label: "Today's Classes", value: 0, icon: Calendar, color: "#3b82f6" },
-  ]);
-
-  const [borrowChart, setBorrowChart] = useState<BorrowChartItem[]>([]);
-  const [currentBorrows, setCurrentBorrows] = useState<CurrentBorrow[]>([]);
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [nextClass, setNextClass] = useState<ScheduleItem | null>(null);
+  const CAT_COLORS = ["#378ADD", "#1D9E75", "#7F77DD", "#BA7517", "#D85A30", "#888780"];
 
   useEffect(() => {
-    const fetchData = async () => {
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
+    const fetchAll = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const userId = user.id;
+      const { data: profile } = await supabase.from("users").select("full_name, department").eq("id", user.id).single();
+      const name = profile?.full_name || "Faculty";
+      const dept = profile?.department;
+      setUserName(name.split(" ")[0]);
+      setUserDept(dept || "");
 
-      const { data: userData } = await supabase
-        .from("users")
-        .select("full_name")
-        .eq("id", userId)
-        .single();
+      const eq = dept ? (q: any) => q.eq("department", dept) : (q: any) => q;
 
-      if (userData) {
-        setFullName(userData.full_name ?? "");
-      }
-
-      const { count: activeBorrows } = await supabase
-        .from("borrow_requests")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", userId)
-        .eq("status", "borrowed");
-
-      const { count: pendingApprovals } = await supabase
-        .from("borrow_requests")
-        .select("*", { count: "exact", head: true })
-        .eq("status", "pending")
-        .eq("request_type", "student");
-
-      const { count: todayClasses } = await supabase
-        .from("class_schedules")
-        .select("*", { count: "exact", head: true })
-        .eq("faculty_id", userId)
-        .eq("day_of_week", TODAY_LABEL);
-
-      setStats([
-        { label: "Active Borrows", value: activeBorrows ?? 0, icon: PackageCheck, color: "#0ea5a0" },
-        { label: "Pending Approvals", value: pendingApprovals ?? 0, icon: Clock, color: "#f59e0b" },
-        { label: "Today's Classes", value: todayClasses ?? 0, icon: Calendar, color: "#3b82f6" },
+      const [{ count: total }, { count: available }] = await Promise.all([
+        eq(supabase.from("equipment").select("*", { count: "exact", head: true })),
+        eq(supabase.from("equipment").select("*", { count: "exact", head: true }).eq("status", "available")),
       ]);
 
-      const now = new Date();
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+      const { data: borrows } = await supabase.from("borrow_requests").select("*, borrow_items(equipment_id, quantity, equipment:equipment_id(name))").eq("user_id", user.id).order("created_at", { ascending: false });
+      const active = borrows?.filter((b: any) => b.status === "borrowed" || b.status === "approved").length || 0;
+      const overdue = borrows?.filter((b: any) => b.status === "borrowed" && new Date(b.borrow_date).getTime() + 3 * 60 * 60 * 1000 < Date.now()).length || 0;
+      const faculty = borrows?.filter((b: any) => b.request_type === "faculty").length || 0;
 
-      const { data: monthBorrows } = await supabase
-        .from("borrow_requests")
-        .select("status")
-        .eq("user_id", userId)
-        .gte("created_at", monthStart);
+      setStats({ total: total || 0, available: available || 0, active, faculty, overdue });
+      setRecentBorrows(borrows?.slice(0, 5) || []);
 
-      if (monthBorrows) {
-        const grouped: Record<string, number> = {};
-        monthBorrows.forEach((b) => {
-          grouped[b.status] = (grouped[b.status] || 0) + 1;
-        });
-        const chartData: BorrowChartItem[] = Object.entries(grouped).map(([status, count]) => ({
-          status: status.charAt(0).toUpperCase() + status.slice(1),
-          count,
+      // Categories
+      const { data: cats } = await supabase.from("categories").select("id, name");
+      if (cats) {
+        const catData = await Promise.all(cats.map(async (c: any) => {
+          const { count } = await eq(supabase.from("equipment").select("*", { count: "exact", head: true })).eq("category_id", c.id);
+          return { name: c.name, count: count || 0 };
         }));
-        setBorrowChart(chartData);
+        const filtered = catData.filter((c: any) => c.count > 0).sort((a: any, b: any) => b.count - a.count).slice(0, 6);
+        setCategories(filtered);
+        setMaxCat(Math.max(...filtered.map((c: any) => c.count), 1));
       }
 
-      const { data: activeBorrowData } = await supabase
-        .from("borrow_requests")
-        .select("id, borrow_date, return_date, status")
-        .eq("user_id", userId)
-        .eq("status", "borrowed")
-        .order("created_at", { ascending: false });
-
-      if (activeBorrowData && activeBorrowData.length > 0) {
-        const borrowIds = activeBorrowData.map((b) => b.id);
-
-        const { data: items } = await supabase
-          .from("borrow_items")
-          .select("borrow_request_id, equipment_id")
-          .in("borrow_request_id", borrowIds);
-
-        const equipIds = items ? [...new Set(items.map((i) => i.equipment_id))] : [];
-
-        const { data: equipData } =
-          equipIds.length > 0
-            ? await supabase.from("equipment").select("id, name").in("id", equipIds)
-            : { data: [] };
-
-        const equipMap: Record<string, string> = {};
-        equipData?.forEach((e) => {
-          equipMap[e.id] = e.name;
-        });
-
-        const borrowItemMap: Record<string, string[]> = {};
-        items?.forEach((i) => {
-          if (!borrowItemMap[i.borrow_request_id]) borrowItemMap[i.borrow_request_id] = [];
-          const name = equipMap[i.equipment_id];
-          if (name) borrowItemMap[i.borrow_request_id].push(name);
-        });
-
-        const borrows: CurrentBorrow[] = activeBorrowData.map((b) => ({
-          id: b.id,
-          equipment: (borrowItemMap[b.id] || []).join(", ") || "-",
-          borrowDate: b.borrow_date
-            ? new Date(b.borrow_date + "T00:00:00").toLocaleDateString()
-            : "-",
-          expectedReturn: b.return_date
-            ? new Date(b.return_date + "T00:00:00").toLocaleDateString()
-            : "-",
-          status: b.status,
-        }));
-        setCurrentBorrows(borrows);
-      }
-
-      const { data: notifData } = await supabase
-        .from("notifications")
-        .select("id, title, message, type, created_at, is_read")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false })
-        .limit(5);
-
-      if (notifData) {
-        setNotifications(notifData as NotificationItem[]);
-      }
-
-      const { data: scheduleData } = await supabase
-        .from("class_schedules")
-        .select("id, subject, room, start_time, end_time")
-        .eq("faculty_id", userId)
-        .eq("day_of_week", TODAY_LABEL)
-        .order("start_time", { ascending: true })
-        .limit(1)
-        .single();
-
-      if (scheduleData) {
-        setNextClass(scheduleData as ScheduleItem);
-      }
+      // Notifications
+      const { data: notifs } = await supabase.from("notifications").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(4);
+      setNotifications(notifs || []);
 
       setLoading(false);
     };
-
-    fetchData();
+    fetchAll();
   }, []);
-
-  const StatCardSkeleton = () => (
-    <div className="ecp-stat-card">
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <Skeleton className="mb-2 h-4 w-24" />
-          <Skeleton className="h-8 w-16" />
-        </div>
-        <Skeleton className="h-10 w-10 rounded-lg" />
-      </div>
-    </div>
-  );
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <Skeleton className="h-16 w-full rounded-xl" />
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <StatCardSkeleton />
-          <StatCardSkeleton />
-          <StatCardSkeleton />
+      <div className="p-6">
+        <div className="mb-[22px] h-[88px] animate-pulse rounded-xl border border-[#dde4ec] bg-white" />
+        <div className="mb-[22px] grid grid-cols-2 gap-3.5 sm:grid-cols-3 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="rounded-xl border border-[#dde4ec] bg-white p-5">
+              <div className="mb-3 h-2.5 w-1/2 animate-pulse rounded bg-[#e2e8f0]" />
+              <div className="mb-2.5 h-6 w-3/4 animate-pulse rounded bg-[#e2e8f0]" />
+              <div className="h-2 w-2/3 animate-pulse rounded bg-[#e2e8f0]" />
+            </div>
+          ))}
         </div>
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <Skeleton className="h-[300px] rounded-xl lg:col-span-2" />
-          <Skeleton className="h-[300px] rounded-xl" />
+        <div className="grid grid-cols-1 gap-[18px] lg:grid-cols-[1fr_380px]">
+          <div className="h-[220px] animate-pulse rounded-xl bg-[#e2e8f0]" />
+          <div className="flex flex-col gap-3.5">
+            <div className="h-[160px] animate-pulse rounded-xl bg-[#e2e8f0]" />
+            <div className="h-[200px] animate-pulse rounded-xl bg-[#e2e8f0]" />
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-xl border border-[#dde4ec] bg-gradient-to-r from-navy to-[#253348] p-6 shadow-sm">
-        <h1 className="text-2xl font-bold text-white">
-          Welcome back, {fullName || "Faculty"}
-        </h1>
-        <p className="mt-1 text-sm text-white/70">
-          Here&apos;s your laboratory overview for today.
-        </p>
+    <div className="p-6" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+      {/* Welcome Banner */}
+      <div className="relative mb-[22px] flex items-center justify-between gap-5 overflow-hidden rounded-xl border border-[#dde4ec] bg-white p-[22px_28px] shadow-sm">
+        <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l bg-gradient-to-b from-[#0ea5a0] to-[#1b2b40]" />
+        <div className="flex-1">
+          <h3 className="mb-1 text-xl font-bold text-[#1b2b40]">Hello, {userName}! 👋</h3>
+          <p className="text-[0.83rem] text-[#8fa1b3]">
+            {userDept || "Faculty"} — Manage your laboratory activities and equipment borrowings
+          </p>
+          <div className="mt-3.5 flex flex-wrap gap-2">
+            <Link href="/faculty/borrow" className="inline-flex items-center gap-1.5 rounded-lg bg-[#1b2b40] px-4 py-2 text-xs font-semibold text-white no-underline transition-colors hover:bg-[#0ea5a0]">
+              <HandHelping className="h-3.5 w-3.5" /> Borrow Equipment
+            </Link>
+            <Link href="/faculty/equipment" className="inline-flex items-center gap-1.5 rounded-lg border border-[#dde4ec] bg-transparent px-4 py-2 text-xs font-semibold text-[#1b2b40] no-underline transition-colors hover:border-[#0ea5a0] hover:text-[#0ea5a0]">
+              <Microscope className="h-3.5 w-3.5" /> Browse Equipment
+            </Link>
+          </div>
+        </div>
+        <div className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-xl bg-[#e0f7f6] text-[#0ea5a0] text-2xl">
+          {userDept === "Science" ? <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18"/></svg> : <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>}
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {stats.map((stat) => (
-          <div key={stat.label} className="ecp-stat-card">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-sm text-silver">{stat.label}</p>
-                <p className="mt-1 text-3xl font-bold text-navy">{stat.value}</p>
-              </div>
-              <div
-                className="flex h-10 w-10 items-center justify-center rounded-lg"
-                style={{ backgroundColor: stat.color + "15" }}
-              >
-                <stat.icon className="h-5 w-5" style={{ color: stat.color }} />
-              </div>
+      {/* Stats Grid */}
+      <div className="mb-[22px] grid grid-cols-2 gap-3.5 sm:grid-cols-3 lg:grid-cols-4">
+        {[
+          { label: "Total Equipment", sub: "In the laboratory", value: stats.total, icon: Microscope, color: "blue", iconBg: "#eff6ff", iconColor: "#3b82f6" },
+          { label: "Available", sub: "Ready for use", value: stats.available, icon: CheckCircle, color: "green", iconBg: "#ecfdf5", iconColor: "#10b981" },
+          { label: "Active Borrowings", sub: "Currently borrowed", value: stats.active, icon: Clock, color: "amber", iconBg: "#fffbeb", iconColor: "#f59e0b" },
+          { label: "Faculty Borrows", sub: "My direct borrowings", value: stats.faculty, icon: HandHelping, color: "teal", iconBg: "#e0f7f6", iconColor: "#0ea5a0" },
+        ].map((s) => (
+          <div
+            key={s.label}
+            className="group relative block cursor-pointer overflow-hidden rounded-xl border border-[#dde4ec] bg-white p-[18px_20px] shadow-sm no-underline transition-all hover:-translate-y-[3px] hover:border-transparent hover:shadow-md"
+          >
+            <div className="absolute top-0 left-0 right-0 h-[3px] rounded-t opacity-0 transition-opacity group-hover:opacity-100" style={{ background: s.iconColor }} />
+            <div className="mb-3 flex h-[38px] w-[38px] items-center justify-center rounded-lg text-[0.95rem]" style={{ background: s.iconBg, color: s.iconColor }}>
+              <s.icon className="h-[18px] w-[18px]" />
             </div>
+            <div className="text-[1.7rem] font-bold leading-none text-[#1b2b40]">{stats.total > 0 || s.label !== "Total Equipment" ? s.value : stats.total}</div>
+            <div className="mt-1 text-[0.73rem] font-medium text-[#8fa1b3]">{s.label}</div>
+            <div className="mt-0.5 text-[0.7rem] text-[#8fa1b3]">{s.sub}</div>
           </div>
         ))}
       </div>
 
-      <div className="flex flex-wrap gap-3">
-        <Link href="/faculty/borrow">
-          <Button
-            className="bg-teal hover:bg-teal-dark text-white gap-2 h-10 px-5"
-          >
-            <PackageCheck className="h-4 w-4" />
-            Borrow Equipment
-            <ArrowRight className="h-4 w-4" />
-          </Button>
-        </Link>
-        <Link href="/faculty/approvals">
-          <Button
-            variant="outline"
-            className="border-teal text-teal hover:bg-teal-light gap-2 h-10 px-5"
-          >
-            <Clock className="h-4 w-4" />
-            Approve Requests
-            <ArrowRight className="h-4 w-4" />
-          </Button>
-        </Link>
-      </div>
+      {stats.overdue > 0 && (
+        <div className="mb-4 flex items-start gap-3 rounded-[10px] border border-[#fca5a5] bg-[#fef2f2] p-[14px_16px]">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[#ef4444]" />
+          <div>
+            <p className="text-[0.8rem] leading-relaxed text-[#991b1b]">
+              You have {stats.overdue} overdue borrow{stats.overdue > 1 ? "s" : ""}. Please return the equipment as soon as possible.
+            </p>
+            <Link href="/faculty/history" className="text-[0.76rem] font-semibold text-[#ef4444] no-underline hover:underline">
+              View details →
+            </Link>
+          </div>
+        </div>
+      )}
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <Card className="ecp-card lg:col-span-2 border-0 shadow-none">
-          <CardHeader>
-            <CardTitle className="text-sm font-semibold uppercase tracking-wider text-silver">
-              My Borrows This Month
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {borrowChart.length === 0 ? (
-              <div className="flex h-[250px] items-center justify-center text-sm text-silver">
-                No borrows this month
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={borrowChart} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#dde4ec" />
-                  <XAxis dataKey="status" tick={{ fontSize: 11, fill: "#8fa1b3" }} />
-                  <YAxis tick={{ fontSize: 11, fill: "#8fa1b3" }} allowDecimals={false} />
-                  <Tooltip
-                    contentStyle={{
-                      borderRadius: "8px",
-                      border: "1px solid #dde4ec",
-                      fontSize: "13px",
-                    }}
-                  />
-                  <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-                    {borrowChart.map((entry, i) => (
-                      <Cell
-                        key={i}
-                        fill={getStatusColor(entry.status.toLowerCase())}
-                      />
+      {/* Main Grid */}
+      <div className="grid grid-cols-1 gap-[18px] lg:grid-cols-[1fr_380px]">
+        {/* Left: Recent Borrowings + Category Chart */}
+        <div>
+          <div className="overflow-hidden rounded-xl border border-[#dde4ec] bg-white shadow-sm">
+            <div className="flex items-center justify-between border-b border-[#dde4ec] px-5 py-3.5">
+              <h5 className="m-0 flex items-center gap-2 text-[0.9rem] font-bold text-[#1b2b40]">
+                <History className="h-3.5 w-3.5 text-[#8fa1b3]" /> Recent Borrowings
+              </h5>
+              <Link href="/faculty/history" className="text-[0.76rem] font-semibold text-[#0ea5a0] no-underline hover:underline">
+                View all →
+              </Link>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="bg-[#f2f5f9] text-left">
+                    {["Equipment", "Borrowed", "Expected Return", "Status", "Action"].map((h) => (
+                      <th key={h} className="px-2.5 py-2 text-[0.68rem] font-semibold uppercase tracking-wider text-[#8fa1b3]">{h}</th>
                     ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentBorrows.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-8 text-center text-[0.82rem] text-[#8fa1b3]">
+                        <Microscope className="mx-auto mb-2 h-7 w-7 text-[#dde4ec]" />
+                        No recent borrowings
+                      </td>
+                    </tr>
+                  ) : (
+                    recentBorrows.map((b: any) => (
+                      <tr key={b.id} className="hover:bg-[#f8fafb]">
+                        <td className="border-b border-[#dde4ec] px-2.5 py-2.5 text-[0.8rem]">
+                          <div className="font-semibold text-[#1b2b40]">
+                            {b.borrow_items?.[0]?.equipment?.name || `Request #${b.id.slice(0, 6)}`}
+                          </div>
+                        </td>
+                        <td className="border-b border-[#dde4ec] px-2.5 py-2.5 text-[0.8rem] text-[#4a5e74]">
+                          {new Date(b.borrow_date || b.created_at).toLocaleDateString()}
+                        </td>
+                        <td className="border-b border-[#dde4ec] px-2.5 py-2.5 text-[0.8rem] text-[#4a5e74]">
+                          {b.return_date ? new Date(b.return_date).toLocaleDateString() : "—"}
+                        </td>
+                        <td className="border-b border-[#dde4ec] px-2.5 py-2.5">
+                          <span className={`inline-flex items-center gap-1 rounded-[10px] px-2.5 py-0.5 text-[0.68rem] font-bold ${
+                            b.status === "borrowed" ? "bg-[#eff6ff] text-[#1d4ed8]" :
+                            b.status === "returned" ? "bg-[#ecfdf5] text-[#065f46]" :
+                            b.status === "overdue" ? "bg-[#fef2f2] text-[#991b1b]" :
+                            "bg-[#fffbeb] text-[#92400e]"
+                          }`}>
+                            <span className={`h-1.5 w-1.5 rounded-full ${
+                              b.status === "borrowed" ? "bg-[#1d4ed8]" :
+                              b.status === "returned" ? "bg-[#065f46]" :
+                              b.status === "overdue" ? "bg-[#991b1b]" :
+                              "bg-[#92400e]"
+                            }`} />
+                            {b.status}
+                          </span>
+                        </td>
+                        <td className="border-b border-[#dde4ec] px-2.5 py-2.5">
+                          {b.status === "borrowed" && (
+                            <Link href="/faculty/history" className="inline-flex items-center gap-1 rounded-md border border-[#d1fae5] bg-[#f0fdf4] px-2.5 py-1 text-[0.68rem] font-semibold text-[#065f46] no-underline transition-colors hover:bg-[#d1fae5]">
+                              <CheckCircle className="h-3 w-3" /> Return
+                            </Link>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
 
-        <Card className="ecp-card border-0 shadow-none">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-silver">
-              <Bell className="h-4 w-4" />
-              Recent Notifications
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {notifications.length === 0 ? (
-              <p className="py-8 text-center text-sm text-silver">
-                No notifications yet
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {notifications.map((n) => (
-                  <div
-                    key={n.id}
-                    className={`rounded-lg border p-3 text-sm ${
-                      n.is_read
-                        ? "border-[#dde4ec] bg-white"
-                        : "border-teal/30 bg-teal-light/50"
-                    }`}
-                  >
-                    <p className="font-semibold text-navy">{n.title}</p>
-                    {n.message && (
-                      <p className="mt-0.5 text-xs text-silver line-clamp-2">
-                        {n.message}
-                      </p>
-                    )}
-                    <p className="mt-1 text-[11px] text-silver/70">
-                      {new Date(n.created_at).toLocaleDateString()} ·{" "}
-                      {new Date(n.created_at).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </p>
+          {/* Category bars */}
+          {categories.length > 0 && (
+            <div className="mt-[18px] overflow-hidden rounded-xl border border-[#dde4ec] bg-white shadow-sm">
+              <div className="border-b border-[#dde4ec] px-5 py-3.5">
+                <h5 className="m-0 flex items-center gap-2 text-[0.9rem] font-bold text-[#1b2b40]">
+                  <Microscope className="h-3.5 w-3.5 text-[#8fa1b3]" /> Equipment by Category
+                </h5>
+              </div>
+              <div className="px-5 py-4">
+                {categories.map((c: any, i: number) => (
+                  <div key={c.name} className="mb-2.5 flex items-center gap-2.5">
+                    <span className="w-[110px] shrink-0 overflow-hidden text-ellipsis whitespace-nowrap text-[0.73rem] text-[#4a5e74]">{c.name}</span>
+                    <div className="h-[7px] flex-1 overflow-hidden rounded bg-[#f2f5f9]">
+                      <div
+                        className="h-full rounded transition-all duration-600"
+                        style={{ width: `${(c.count / maxCat) * 100}%`, background: CAT_COLORS[i % CAT_COLORS.length] }}
+                      />
+                    </div>
+                    <span className="w-[26px] shrink-0 text-right font-mono text-[0.7rem] text-[#8fa1b3]">{c.count}</span>
                   </div>
                 ))}
               </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+            </div>
+          )}
+        </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <Card className="ecp-card lg:col-span-2 border-0 shadow-none">
-          <CardHeader>
-            <CardTitle className="text-sm font-semibold uppercase tracking-wider text-silver">
-              Current Borrows
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="text-xs font-semibold uppercase tracking-wider text-silver">
-                    Equipment
-                  </TableHead>
-                  <TableHead className="text-xs font-semibold uppercase tracking-wider text-silver">
-                    Borrow Date
-                  </TableHead>
-                  <TableHead className="text-xs font-semibold uppercase tracking-wider text-silver">
-                    Expected Return
-                  </TableHead>
-                  <TableHead className="text-xs font-semibold uppercase tracking-wider text-silver">
-                    Status
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {currentBorrows.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={4} className="py-8 text-center text-silver">
-                      No active borrows
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  currentBorrows.map((b) => (
-                    <TableRow key={b.id}>
-                      <TableCell className="font-medium text-navy">
-                        {b.equipment}
-                      </TableCell>
-                      <TableCell className="text-slate">{b.borrowDate}</TableCell>
-                      <TableCell className="text-slate">{b.expectedReturn}</TableCell>
-                      <TableCell>
-                        <Badge
-                          variant="default"
-                          className="bg-teal/15 text-teal hover:bg-teal/20 text-[11px] font-semibold uppercase"
-                        >
-                          {b.status}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-
-        <Card className="ecp-card border-0 shadow-none">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-silver">
-              <Calendar className="h-4 w-4" />
-              Today&apos;s Schedule
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {nextClass ? (
-              <div className="rounded-lg border border-teal/30 bg-teal-light/50 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wider text-teal/70">
-                  {TODAY_LABEL}
-                </p>
-                <p className="mt-1 text-lg font-bold text-navy">
-                  {nextClass.subject || "Untitled Class"}
-                </p>
-                <div className="mt-2 space-y-1 text-sm text-slate">
-                  <p>
-                    <span className="text-silver">Time:</span>{" "}
-                    {nextClass.start_time?.slice(0, 5) ?? "-"} &mdash;{" "}
-                    {nextClass.end_time?.slice(0, 5) ?? "-"}
-                  </p>
-                  <p>
-                    <span className="text-silver">Room:</span>{" "}
-                    {nextClass.room || "-"}
-                  </p>
+        {/* Right sidebar */}
+        <div className="flex flex-col gap-[18px]">
+          {/* Quick Stats */}
+          <div className="overflow-hidden rounded-xl border border-[#dde4ec] bg-white shadow-sm">
+            <div className="border-b border-[#dde4ec] px-5 py-3.5">
+              <h5 className="m-0 flex items-center gap-2 text-[0.9rem] font-bold text-[#1b2b40]">
+                <Clock className="h-3.5 w-3.5 text-[#8fa1b3]" /> Quick Stats
+              </h5>
+            </div>
+            <div className="grid grid-cols-2 gap-2.5 p-4">
+              {[
+                { num: stats.active, label: "Active" },
+                { num: stats.faculty, label: "Total Borrows" },
+              ].map((s) => (
+                <div key={s.label} className="rounded-lg border border-[#dde4ec] bg-[#f2f5f9] p-3">
+                  <div className="text-[1.3rem] font-bold text-[#1b2b40]">{s.num}</div>
+                  <div className="mt-0.5 text-[0.68rem] text-[#8fa1b3]">{s.label}</div>
                 </div>
-                <Link
-                  href="/faculty/schedule"
-                  className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-teal hover:text-teal-dark"
-                >
-                  View full schedule <ArrowRight className="h-3 w-3" />
-                </Link>
-              </div>
-            ) : (
-              <div className="rounded-lg border border-[#dde4ec] bg-[#f8f9fa] p-4 text-center">
-                <Calendar className="mx-auto h-8 w-8 text-silver/40" />
-                <p className="mt-2 text-sm text-silver">
-                  No classes scheduled for today
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              ))}
+            </div>
+          </div>
+
+          {/* Notifications */}
+          <div className="overflow-hidden rounded-xl border border-[#dde4ec] bg-white shadow-sm">
+            <div className="flex items-center justify-between border-b border-[#dde4ec] px-5 py-3.5">
+              <h5 className="m-0 flex items-center gap-2 text-[0.9rem] font-bold text-[#1b2b40]">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8fa1b3" strokeWidth="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+                Notifications
+              </h5>
+            </div>
+            <div className="p-4">
+              {notifications.length === 0 ? (
+                <p className="py-4 text-center text-[0.8rem] text-[#8fa1b3]">No new notifications</p>
+              ) : (
+                notifications.map((n: any) => (
+                  <div key={n.id} className="border-b border-[#dde4ec] py-2 last:border-0">
+                    <div className="text-[0.8rem] font-semibold text-[#1b2b40]">{n.title}</div>
+                    <div className="mt-1 text-[0.72rem] text-[#8fa1b3]">{n.message?.slice(0, 60)}</div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

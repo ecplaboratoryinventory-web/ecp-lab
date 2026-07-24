@@ -70,6 +70,25 @@ export default function BorrowPage() {
   const [returnDate, setReturnDate] = useState("");
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [userDept, setUserDept] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchDepartment = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: profile } = await supabase
+        .from("users")
+        .select("department")
+        .eq("id", user.id)
+        .single();
+      if (profile?.department) {
+        setUserDept(profile.department);
+      }
+    };
+    fetchDepartment();
+  }, []);
 
   const fetchEquipment = useCallback(async () => {
     setLoading(true);
@@ -79,6 +98,9 @@ export default function BorrowPage() {
       .or("status.eq.available,available_quantity.gt.0")
       .order("name");
 
+    if (userDept) {
+      query = query.eq("department", userDept);
+    }
     if (categoryFilter !== "all") {
       query = query.eq("category_id", categoryFilter);
     }
@@ -89,7 +111,7 @@ export default function BorrowPage() {
     const { data } = await query;
     setEquipment((data as Equipment[]) || []);
     setLoading(false);
-  }, [categoryFilter, search]);
+  }, [categoryFilter, search, userDept]);
 
   const fetchCategories = useCallback(async () => {
     const { data } = await supabase
