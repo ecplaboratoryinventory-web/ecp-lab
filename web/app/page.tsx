@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 
 const slides = [
   "/images/landingPage.png",
@@ -32,14 +31,13 @@ export default function LandingPage() {
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4" style={{ height: 58 }}>
           <Link href="/" className="flex items-center gap-[11px] no-underline">
             <div className="flex h-[38px] w-[38px] items-center justify-center rounded border border-white/20 bg-white/10">
-              <Image src="/images/logo-main.png" alt="ECP Logo" width={24} height={24} className="h-6 w-auto" />
+              <img src="/images/logo-main.png" alt="ECP Logo" className="h-6 w-auto" />
             </div>
             <div style={{ lineHeight: 1.2 }}>
               <span className="block text-base font-bold text-white">ECP Inventory Lab</span>
               <small className="text-[0.72rem] font-normal text-white/50">STI College Cotabato</small>
             </div>
           </Link>
-
           <div>
             <Link
               href="/auth/login"
@@ -54,26 +52,15 @@ export default function LandingPage() {
       </nav>
 
       {/* HERO WITH SLIDER */}
-      <section
-        className="relative flex min-h-[500px] items-center overflow-hidden py-[72px] text-center"
-        onMouseEnter={() => {}} onMouseLeave={() => {}}
-      >
-        {/* Background Slides */}
+      <section className="relative flex min-h-[500px] items-center overflow-hidden py-[72px] text-center">
         {slides.map((src, i) => (
           <div
             key={src}
             className="absolute inset-0 bg-cover bg-center transition-opacity duration-1000"
-            style={{
-              backgroundImage: `url(${src})`,
-              opacity: i === currentSlide ? 1 : 0,
-            }}
+            style={{ backgroundImage: `url(${src})`, opacity: i === currentSlide ? 1 : 0 }}
           />
         ))}
-
-        {/* Dark Overlay */}
         <div className="absolute inset-0 z-0" style={{ background: "rgba(44,62,80,0.85)" }} />
-
-        {/* Navigation Dots */}
         <div className="absolute bottom-5 left-1/2 z-[3] flex -translate-x-1/2 gap-2.5">
           {slides.map((_, i) => (
             <button
@@ -84,8 +71,6 @@ export default function LandingPage() {
             />
           ))}
         </div>
-
-        {/* Hero Content */}
         <div className="relative z-10 mx-auto max-w-3xl px-4">
           <h1 className="mb-2 text-[2.6rem] font-black leading-tight tracking-tight text-white">
             ECP Inventory Lab
@@ -105,11 +90,7 @@ export default function LandingPage() {
           { value: "99%", label: "Uptime" },
           { value: "4", label: "Departments" },
         ].map((s, i) => (
-          <div
-            key={s.label}
-            className="px-9 py-[18px] text-center"
-            style={{ borderRight: i < 3 ? "1px solid rgba(255,255,255,0.20)" : "none" }}
-          >
+          <div key={s.label} className="px-9 py-[18px] text-center" style={{ borderRight: i < 3 ? "1px solid rgba(255,255,255,0.20)" : "none" }}>
             <div className="text-[1.6rem] font-black leading-none text-white">{s.value}</div>
             <div className="mt-[3px] text-[0.7rem] font-bold uppercase tracking-wider text-white/70">{s.label}</div>
           </div>
@@ -120,39 +101,21 @@ export default function LandingPage() {
       <section id="features" className="bg-white py-[72px]">
         <div className="mx-auto max-w-6xl px-4">
           <div className="mb-11 text-center">
-            <h2 className="mb-2 text-[1.75rem] font-black" style={{ color: "#2c3e50" }}>
-              System Features
-            </h2>
-            <p className="text-[0.95rem]" style={{ color: "#7b8a8b" }}>
-              Efficiently manage your laboratory equipment and inventory
-            </p>
+            <h2 className="mb-2 text-[1.75rem] font-black" style={{ color: "#2c3e50" }}>System Features</h2>
+            <p className="text-[0.95rem]" style={{ color: "#7b8a8b" }}>Efficiently manage your laboratory equipment and inventory</p>
             <div className="mx-auto mt-3 h-[3px] w-10 rounded" style={{ background: "#18bc9c" }} />
           </div>
-
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {[
-              { icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 18 18 6"/><circle cx="8" cy="8" r="3"/><circle cx="16" cy="16" r="3"/></svg>, title: "Equipment Management", desc: "Track and manage all laboratory equipment with detailed records and real-time status monitoring.", bg: "#d6eaf8", color: "#1a5276" },
-              { icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>, title: "User Management", desc: "Role-based access control for administrators, faculty members, and laboratory staff.", bg: "#d5f5e3", color: "#1d6a3a" },
-              { icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>, title: "Dashboard & Reports", desc: "Comprehensive analytics dashboard with charts, activity logs, and PDF report generation.", bg: "#fdebd0", color: "#a04000" },
-              { icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>, title: "Borrowing System", desc: "Streamlined borrow and return process with approval workflows and overdue notifications.", bg: "#fce8e8", color: "#922b21" },
+              { icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 18 18 6"/><circle cx="8" cy="8" r="3"/><circle cx="16" cy="16" r="3"/></svg>, title: "Equipment Tracking", desc: "Monitor all laboratory equipment with real-time status updates and availability tracking.", bg: "#d6eaf8", color: "#1a5276" },
+              { icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9.53 16.122a3 3 0 0 0-5.78 1.128 2.25 2.25 0 0 1-2.4 2.245 4.5 4.5 0 0 0 8.4-2.245c0-.399-.078-.78-.22-1.128Z"/><path d="M15 12h5a2 2 0 0 1 2 2v1"/><path d="M8 13V7a4 4 0 0 1 8 0v1"/></svg>, title: "Borrowing System", desc: "Streamlined borrowing and return process for students and faculty members.", bg: "#d5f5e3", color: "#1d6a3a" },
+              { icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>, title: "Maintenance Logs", desc: "Keep track of equipment maintenance schedules and full repair history.", bg: "#fdebd0", color: "#a04000" },
+              { icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>, title: "Reports & Analytics", desc: "Generate detailed reports and analyze equipment usage patterns.", bg: "#fce8e8", color: "#922b21" },
             ].map((f) => (
-              <div
-                key={f.title}
-                className="flex h-full flex-col items-center rounded border border-[#dde1e3] px-5 py-7 text-center transition-all hover:-translate-y-1 hover:shadow-lg"
-                style={{ background: "#f8f9fa", borderTop: "3px solid #18bc9c" }}
-              >
-                <div
-                  className="mb-4 flex h-14 w-14 items-center justify-center rounded text-2xl"
-                  style={{ background: f.bg, color: f.color }}
-                >
-                  {f.icon}
-                </div>
-                <h5 className="mb-2.5 text-[0.95rem] font-bold" style={{ color: "#2c3e50" }}>
-                  {f.title}
-                </h5>
-                <p className="text-[0.85rem] leading-relaxed" style={{ color: "#7b8a8b" }}>
-                  {f.desc}
-                </p>
+              <div key={f.title} className="flex h-full flex-col items-center rounded border border-[#dde1e3] px-5 py-7 text-center transition-all hover:-translate-y-1 hover:shadow-lg" style={{ background: "#f8f9fa", borderTop: "3px solid #18bc9c" }}>
+                <div className="mb-4 flex h-14 w-14 items-center justify-center rounded" style={{ background: f.bg, color: f.color }}>{f.icon}</div>
+                <h5 className="mb-2.5 text-[0.95rem] font-bold" style={{ color: "#2c3e50" }}>{f.title}</h5>
+                <p className="text-[0.85rem] leading-relaxed" style={{ color: "#7b8a8b" }}>{f.desc}</p>
               </div>
             ))}
           </div>
@@ -167,21 +130,27 @@ export default function LandingPage() {
               About the System
             </h2>
             <p className="mb-3.5 text-[0.93rem] leading-relaxed" style={{ color: "#5a6a7a" }}>
-              The Engineering Laboratory at STI College Cotabato provides students with hands-on experience using industry-standard equipment and tools. This inventory management system helps track, maintain, and manage all laboratory resources efficiently.
+              The <strong>ECP Inventory Lab</strong> is a comprehensive laboratory equipment
+              management system designed for <strong>STI College Cotabato</strong>. It provides
+              an efficient platform for tracking, borrowing, and maintaining laboratory
+              equipment and supplies.
             </p>
             <p className="mb-3.5 text-[0.93rem] leading-relaxed" style={{ color: "#5a6a7a" }}>
-              From microscopes and glassware to electronic testing equipment and safety gear, every item in our inventory is catalogued and monitored to support the academic excellence of our engineering programs.
+              This system ensures that all laboratory resources are properly accounted for,
+              reducing losses and improving the overall laboratory experience for both
+              students and faculty members.
             </p>
             <Link
               href="/auth/login"
               className="inline-flex items-center gap-2 rounded px-[22px] py-2.5 text-[0.88rem] font-bold text-white no-underline transition-colors hover:bg-[#1a2b3c]"
               style={{ background: "#2c3e50" }}
             >
-              Access System
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+              Get Started
             </Link>
           </div>
           <div className="flex items-center justify-center" style={{ minWidth: 150 }}>
-            <Image src="/images/logo-main.png" alt="Engineering" width={130} height={130} className="h-auto w-[130px] opacity-90" />
+            <img src="/images/logo-main.png" alt="ECP Laboratory" className="h-auto w-[130px] opacity-90" />
           </div>
         </div>
       </section>
