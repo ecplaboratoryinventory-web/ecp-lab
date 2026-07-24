@@ -67,7 +67,7 @@ export default function FacultyDashboardPage() {
 
   if (loading) {
     return (
-      <div className="p-6">
+      <div style={{ fontFamily: "'DM Sans', sans-serif" }}>
         <div className="mb-[22px] h-[88px] animate-pulse rounded-xl border border-[#dde4ec] bg-white" />
         <div className="mb-[22px] grid grid-cols-2 gap-3.5 sm:grid-cols-3 lg:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
@@ -90,7 +90,7 @@ export default function FacultyDashboardPage() {
   }
 
   return (
-    <div className="p-6" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+    <div style={{ fontFamily: "'DM Sans', sans-serif" }}>
       {/* Welcome Banner */}
       <div className="relative mb-[22px] flex items-center justify-between gap-5 overflow-hidden rounded-xl border border-[#dde4ec] bg-white p-[22px_28px] shadow-sm">
         <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l bg-gradient-to-b from-[#0ea5a0] to-[#1b2b40]" />
