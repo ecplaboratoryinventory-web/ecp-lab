@@ -143,7 +143,7 @@ export default function FacultyDashboardPage() {
             <p className="text-[0.8rem] leading-relaxed text-[#991b1b]">
               You have {stats.overdue} overdue borrow{stats.overdue > 1 ? "s" : ""}. Please return the equipment as soon as possible.
             </p>
-            <Link href="/faculty/history" className="text-[0.76rem] font-semibold text-[#ef4444] no-underline hover:underline">
+            <Link href="/faculty/history?status=overdue" className="text-[0.76rem] font-semibold text-[#ef4444] no-underline hover:underline">
               View details →
             </Link>
           </div>

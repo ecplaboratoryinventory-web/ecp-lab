@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, Suspense } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -73,6 +74,7 @@ const STATUS_OPTIONS = [
   { value: "approved", label: "Approved" },
   { value: "pending", label: "Pending" },
   { value: "denied", label: "Denied" },
+  { value: "overdue", label: "Overdue" },
 ];
 
 const STATUS_VARIANTS: Record<string, { label: string; className: string }> = {
@@ -81,12 +83,14 @@ const STATUS_VARIANTS: Record<string, { label: string; className: string }> = {
   borrowed: { label: "Borrowed", className: "bg-indigo-100 text-indigo-700" },
   returned: { label: "Returned", className: "bg-green-100 text-green-700" },
   denied: { label: "Denied", className: "bg-red-100 text-red-700" },
+  overdue: { label: "Overdue", className: "bg-red-100 text-red-700" },
 };
 
 const PAGE_SIZE = 10;
 
-export default function HistoryPage() {
+function HistoryContent() {
   const supabase = createClient();
+  const searchParams = useSearchParams();
 
   const [requests, setRequests] = useState<BorrowRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -125,6 +129,11 @@ export default function HistoryPage() {
     fetchDepartment();
   }, []);
 
+  useEffect(() => {
+    const status = searchParams.get("status");
+    if (status) setStatusFilter(status);
+  }, [searchParams]);
+
   const fetchRequests = useCallback(async () => {
     setLoading(true);
 
@@ -151,8 +160,11 @@ export default function HistoryPage() {
     if (dateTo) {
       query = query.lte("created_at", `${dateTo}T23:59:59`);
     }
-    if (statusFilter !== "all") {
+    if (statusFilter !== "all" && statusFilter !== "overdue") {
       query = query.eq("status", statusFilter);
+    }
+    if (statusFilter === "overdue") {
+      query = query.eq("status", "borrowed");
     }
     if (searchTerm) {
       query = query.or(
@@ -166,6 +178,14 @@ export default function HistoryPage() {
     const { data, count } = await query.range(from, to);
 
     let result = (data as BorrowRequest[]) || [];
+
+    if (statusFilter === "overdue") {
+      const now = Date.now();
+      result = result.filter((req) => {
+        if (!req.borrow_date) return false;
+        return new Date(req.borrow_date).getTime() + 3 * 60 * 60 * 1000 < now;
+      });
+    }
 
     if (userDept && result.length > 0) {
       const departmentEquipIds = new Set<string>();
@@ -671,5 +691,13 @@ export default function HistoryPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export default function HistoryPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-center text-silver">Loading...</div>}>
+      <HistoryContent />
+    </Suspense>
   );
 }
