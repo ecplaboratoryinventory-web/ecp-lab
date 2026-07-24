@@ -31,7 +31,7 @@ export default function LandingPage() {
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4" style={{ height: 58 }}>
           <Link href="/" className="flex items-center gap-[11px] no-underline">
             <div className="flex h-[38px] w-[38px] items-center justify-center rounded border border-white/20 bg-white/10">
-              <img src="/images/logo-main.png" alt="ECP Logo" className="h-6 w-auto" />
+              <img src="/images/logo-main.png" alt="ECP Logo" className="h-9 w-10 object-contain" />
             </div>
             <div style={{ lineHeight: 1.2 }}>
               <span className="block text-base font-bold text-white">ECP Inventory Lab</span>
@@ -150,7 +150,7 @@ export default function LandingPage() {
             </Link>
           </div>
           <div className="flex items-center justify-center" style={{ minWidth: 150 }}>
-            <img src="/images/logo-main.png" alt="ECP Laboratory" className="h-auto w-[130px] opacity-90" />
+            <img src="/images/logo-main.png" alt="ECP Laboratory" className="h-[200px] w-[200px] opacity-90" />
           </div>
         </div>
       </section>

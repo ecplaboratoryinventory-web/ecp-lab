@@ -75,7 +75,7 @@ export default function LoginPage() {
           <div className="relative flex w-[320px] flex-col justify-between overflow-hidden p-[50px_38px]" style={{ background: "#2c3e50" }}>
             <div>
               <div className="mb-[22px] flex h-[52px] w-[52px] items-center justify-center rounded-md border border-white/10 bg-white/10">
-                <img src="/images/logo-main.png" alt="ECP" className="h-8 w-auto" />
+                <img src="/images/logo-main.png" alt="ECP" className="h-14 w-14 object-contain" />
               </div>
               <h2 className="m-0 mb-2.5 text-[1.3rem] font-black tracking-tight text-white">
                 ECP Inventory Lab
@@ -140,10 +140,9 @@ export default function LoginPage() {
                   Email
                 </label>
                 <div
-                  className="flex overflow-hidden rounded border border-[#cdd3d4] transition-colors"
-                  style={{ boxShadow: "0 0 0 3px rgba(24,188,156,0)" }}
+                  className="group flex overflow-hidden rounded border border-[#cdd3d4] transition-all focus-within:border-[#18bc9c] focus-within:shadow-[0_0_0_3px_rgba(24,188,156,0.14)]"
                 >
-                  <div className="flex w-10 items-center justify-center border-r border-[#cdd3d4] text-[#95a5a6]" style={{ background: "#f4f6f7" }}>
+                  <div className="flex w-10 items-center justify-center border-r border-[#cdd3d4] text-[#95a5a6] group-focus-within:text-[#18bc9c]" style={{ background: "#f4f6f7" }}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
                   </div>
                   <input
@@ -161,8 +160,8 @@ export default function LoginPage() {
                 <label className="mb-1.5 block text-[0.75rem] font-bold uppercase tracking-wider" style={{ color: "#7b8a8b" }}>
                   Password
                 </label>
-                <div className="flex overflow-hidden rounded border border-[#cdd3d4]">
-                  <div className="flex w-10 items-center justify-center border-r border-[#cdd3d4] text-[#95a5a6]" style={{ background: "#f4f6f7" }}>
+                <div className="group flex overflow-hidden rounded border border-[#cdd3d4] transition-all focus-within:border-[#18bc9c] focus-within:shadow-[0_0_0_3px_rgba(24,188,156,0.14)]">
+                  <div className="flex w-10 items-center justify-center border-r border-[#cdd3d4] text-[#95a5a6] group-focus-within:text-[#18bc9c]" style={{ background: "#f4f6f7" }}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                   </div>
                   <input
