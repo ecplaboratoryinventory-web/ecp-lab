@@ -442,16 +442,16 @@ export default function BorrowPage() {
                     <button
                       key={eq.id}
                       onClick={() => toggleSelect(eq)}
-                      className={`group mx-auto w-full max-w-[200px] overflow-hidden rounded-2xl border bg-white text-left shadow-sm transition-all hover:shadow-lg ${
+                      className={`group mx-auto w-full max-w-[200px] rounded-2xl border bg-white text-left shadow-sm transition-all hover:shadow-lg ${
                         isSelected ? "ring-2 ring-teal" : "border-[#dde4ec]"
                       }`}
                     >
                       <div
-                        className="relative flex aspect-square items-center justify-center"
+                        className="relative flex aspect-square items-center justify-center overflow-hidden rounded-t-2xl"
                         style={{ background: `radial-gradient(circle at 30% 20%, ${colors.from}, ${colors.to})` }}
                       >
                         {eq.image_url ? (
-                          <img src={eq.image_url} alt={eq.name} className="h-28 w-auto object-contain drop-shadow-lg" />
+                          <img src={eq.image_url} alt={eq.name} className="absolute -bottom-6 h-40 w-auto -rotate-6 object-contain drop-shadow-[0_8px_16px_rgba(0,0,0,0.3)]" />
                         ) : (
                           <span className="text-5xl drop-shadow-lg">{icon}</span>
                         )}
@@ -469,7 +469,7 @@ export default function BorrowPage() {
                         )}
                       </div>
 
-                      <div className="p-4">
+                      <div className="rounded-b-2xl p-4">
                         <h3 className="truncate text-sm font-bold text-navy">{eq.name}</h3>
                         <div className="mt-1.5 flex flex-wrap gap-1">
                           <span className="rounded border border-[#dde4ec] px-1.5 py-0.5 text-[10px] font-bold uppercase text-silver">

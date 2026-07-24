@@ -36,6 +36,7 @@ interface Equipment {
   condition: string;
   purchase_date: string;
   subject_tags: string[] | null;
+  image_url: string | null;
   categories?: { name: string };
 }
 
@@ -71,7 +72,9 @@ export default function EquipmentPage() {
     purchase_date: "",
     status: "available",
     subject_tags: [] as string[],
+    image_url: "",
   });
+  const [uploading, setUploading] = useState(false);
 
   const fetchData = async () => {
     let query = supabase.from("equipment").select("*, categories(name)");
@@ -120,7 +123,7 @@ export default function EquipmentPage() {
 
   const openCreate = () => {
     setEditingId(null);
-    setForm({ name: "", serial_number: "", category_id: "", quantity: 1, description: "", brand: "", model: "", location: "", condition: "good", purchase_date: "", status: "available", subject_tags: [] });
+    setForm({ name: "", serial_number: "", category_id: "", quantity: 1, description: "", brand: "", model: "", location: "", condition: "good", purchase_date: "", status: "available", subject_tags: [], image_url: "" });
     setModalOpen(true);
   };
 
@@ -139,6 +142,7 @@ export default function EquipmentPage() {
       purchase_date: eq.purchase_date || "",
       status: eq.status,
       subject_tags: eq.subject_tags || [],
+      image_url: eq.image_url || "",
     });
     setModalOpen(true);
   };
