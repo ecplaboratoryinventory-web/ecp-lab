@@ -20,18 +20,36 @@ export default function FacultyLayout({ children }: { children: React.ReactNode 
   const supabase = createClient();
   const [userName, setUserName] = useState("");
   const [userDept, setUserDept] = useState("");
+  const [checking, setChecking] = useState(true);
 
   useEffect(() => {
     const fetch = async () => {
       const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.replace("/auth/login");
+        return;
+      }
       if (user) {
-        const { data } = await supabase.from("users").select("full_name, department").eq("id", user.id).single();
+        const { data } = await supabase.from("users").select("full_name, department, role").eq("id", user.id).single();
+        if (!data || (data.role !== "faculty" && data.role !== "teacher")) {
+          router.replace("/auth/login");
+          return;
+        }
         setUserName(data?.full_name || "Faculty");
         setUserDept(data?.department || "");
       }
+      setChecking(false);
     };
     fetch();
   }, []);
+
+  if (checking) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#f2f5f9]">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-teal border-t-transparent" />
+      </div>
+    );
+  }
 
   const handleLogout = async () => {
     await supabase.auth.signOut();

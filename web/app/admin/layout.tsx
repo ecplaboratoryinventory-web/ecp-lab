@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -33,19 +33,42 @@ const navigation = [
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const supabase = createClient();
   const [userName, setUserName] = useState("Admin");
+  const [checking, setChecking] = useState(true);
 
   useEffect(() => {
     const fetch = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data } = await supabase.from("users").select("full_name").eq("id", user.id).single();
-        if (data?.full_name) setUserName(data.full_name);
+      if (!user) {
+        router.replace("/auth/login");
+        return;
       }
+      if (user) {
+        const { data } = await supabase.from("users").select("full_name, role").eq("id", user.id).single();
+        if (data?.full_name) setUserName(data.full_name);
+        if (data?.role === "faculty") {
+          router.replace("/faculty/dashboard");
+          return;
+        }
+        if (data?.role === "student") {
+          router.replace("/");
+          return;
+        }
+      }
+      setChecking(false);
     };
     fetch();
   }, []);
+
+  if (checking) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#f2f5f9]">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-teal border-t-transparent" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen">
