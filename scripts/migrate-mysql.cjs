@@ -20,8 +20,8 @@ const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
 const MYSQL_CONFIG = {
   host: "localhost",
   port: 3306,
-  user: "lemuel",
-  password: "lemuel_0405",
+  user: "root",
+  password: "",
   database: "lab_inventory_db",
 };
 
