@@ -1,6 +1,6 @@
 # ECP Lab — Gap Analysis: Original vs New System
 
-> Auto-generated: July 24, 2026  
+> Auto-generated: July 24, 2026 (Last updated: July 24, 2026)  
 > Compare: `C:\xampp\htdocs` (PHP + MySQL + Firebase) → Current Next.js + Supabase
 
 ---
@@ -9,11 +9,11 @@
 
 | Status | Count |
 |---|---|
-| ✅ Done | 4 pages |
+| ✅ Done | 7 pages |
 | 🚧 Partial | 1 page |
-| ❌ Missing | 16 pages |
+| ❌ Missing | 13 pages |
 
-**Overall: ~22% of original functionality migrated**
+**Overall: ~38% of original functionality migrated**
 
 ---
 
@@ -24,7 +24,10 @@
 | 1 | `dashboard.php` | `admin/dashboard/page.tsx` | Stats, bar chart, pie chart, recent borrows table |
 | 2 | `equipment.php` | `admin/equipment/page.tsx` | CRUD, CSV export, status/category filters, search, stats |
 | 3 | `categories.php` | `admin/categories/page.tsx` | CRUD, bar chart, stats, equipment counts, delete protection |
-| 21 | `teacher/faculty_login.php` | `auth/login/page.tsx` | Unified login (Supabase Auth) |
+| 4 | `students.php` | `admin/students/page.tsx` | CRUD, CSV import/export, search, stats, status filter |
+| 5 | `manage_account.php` | `admin/faculty/page.tsx` | CRUD, batch CSV upload, activate/deactivate, pagination, role tabs |
+| 6 | `logs.php` | `admin/activity-logs/page.tsx` | Table + 6 pie charts, date filter, action filter, pagination |
+| 7 | `teacher/faculty_login.php` | `auth/login/page.tsx` | Unified login (Supabase Auth) |
 
 ---
 
@@ -42,9 +45,9 @@
 
 | # | Original | What It Does | New Page Status |
 |---|---|---|---|
-| 5 | `students.php` | Student CRUD, CSV import/export, search, stats | `admin/students/page.tsx` — placeholder |
-| 6 | `manage_account.php` | Faculty account CRUD, batch CSV upload, activate/deactivate, pagination | `admin/faculty/page.tsx` — placeholder |
-| 7 | `logs.php` | Activity log table + 6 charts (Chart.js), date filter, print/export | `admin/activity-logs/page.tsx` — placeholder |
+| 5 | `students.php` | ~~Student CRUD, CSV import/export, search, stats~~ | ✅ DONE — `admin/students/page.tsx` |
+| 6 | `manage_account.php` | ~~Faculty account CRUD, batch CSV upload, activate/deactivate, pagination~~ | ✅ DONE — `admin/faculty/page.tsx` |
+| 7 | `logs.php` | ~~Activity log table + 6 charts, date filter, print/export~~ | ✅ DONE — `admin/activity-logs/page.tsx` |
 | 10 | `users.php` | Registration verification: approve/reject, bulk actions, stats | No page exists |
 
 ### MEDIUM PRIORITY — Admin Features
