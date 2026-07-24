@@ -20,6 +20,7 @@ import {
   Calendar,
   FileText,
   ClipboardList,
+  X,
 } from "lucide-react";
 
 interface Equipment {
@@ -491,8 +492,8 @@ export default function BorrowPage() {
                     <span className="text-sm font-semibold text-navy">
                       {selectedIds.size} item{selectedIds.size !== 1 ? "s" : ""} selected
                     </span>
-                    <button onClick={() => setSelectedIds(new Set())} className="text-xs font-medium text-red-500 hover:text-red-600">
-                      Clear
+                    <button onClick={() => setSelectedIds(new Set())} className="flex items-center gap-1 text-xs font-medium text-red-500 hover:text-red-600">
+                      <X className="h-3.5 w-3.5" />
                     </button>
                   </div>
                   <Button
