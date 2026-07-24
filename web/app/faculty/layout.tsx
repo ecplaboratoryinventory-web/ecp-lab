@@ -11,7 +11,7 @@ import {
   User,
   LogOut,
   FlaskConical,
-  Wrench,
+  ScrollText,
 } from "lucide-react";
 
 export default function FacultyLayout({ children }: { children: React.ReactNode }) {
@@ -61,6 +61,7 @@ export default function FacultyLayout({ children }: { children: React.ReactNode 
     { title: "Equipment", href: "/faculty/equipment", icon: FlaskConical },
     { title: "Borrow Item", href: "/faculty/borrow", icon: HandHelping },
     { title: "Student Borrows", href: "/faculty/approvals", icon: GraduationCap },
+    { title: "History", href: "/faculty/history", icon: ScrollText },
   ];
 
   const accountNav = [

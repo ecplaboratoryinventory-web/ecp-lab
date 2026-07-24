@@ -187,31 +187,6 @@ function HistoryContent() {
       });
     }
 
-    if (userDept && result.length > 0) {
-      const departmentEquipIds = new Set<string>();
-
-      const allEquipIds = new Set<string>();
-      result.forEach((req) => {
-        req.borrow_items?.forEach((bi) => {
-          if (bi.equipment_id) allEquipIds.add(bi.equipment_id);
-        });
-      });
-
-      if (allEquipIds.size > 0) {
-        const { data: deptEquip } = await supabase
-          .from("equipment")
-          .select("id")
-          .eq("department", userDept)
-          .in("id", [...allEquipIds]);
-
-        deptEquip?.forEach((e) => departmentEquipIds.add(e.id));
-      }
-
-      result = result.filter((req) =>
-        req.borrow_items?.some((bi) => departmentEquipIds.has(bi.equipment_id)),
-      );
-    }
-
     setRequests(result);
     setTotalCount(count || 0);
     setLoading(false);
