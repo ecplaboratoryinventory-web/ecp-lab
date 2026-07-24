@@ -95,7 +95,6 @@ export default function BorrowPage() {
     let query = supabase
       .from("equipment")
       .select("*")
-      .or("status.eq.available,available_quantity.gt.0")
       .order("name");
 
     if (userDept) {
