@@ -29,6 +29,8 @@ export default function RootLayout() {
     setLoading(false);
     if (data?.role === "student") {
       router.replace("/(student)/(tabs)/home");
+    } else if (data?.role === "faculty") {
+      router.replace("/(faculty)/(tabs)/home");
     } else {
       router.replace("/(auth)/login");
     }
@@ -47,6 +49,7 @@ export default function RootLayout() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(auth)" />
       <Stack.Screen name="(student)" />
+      <Stack.Screen name="(faculty)" />
     </Stack>
   );
 }

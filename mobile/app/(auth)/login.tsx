@@ -18,9 +18,9 @@ export default function LoginScreen() {
       return;
     }
     setLoading(true);
-    const { data: profile } = await supabase.from("users").select("id, email").eq("id_no", studentNumber).eq("role", "student").single();
+    const { data: profile } = await supabase.from("users").select("id, email, role").eq("id_no", studentNumber).in("role", ["student", "faculty"]).single();
     if (!profile) {
-      Alert.alert("Login Failed", "Student not found. Check your school ID.");
+      Alert.alert("Login Failed", "Account not found. Check your ID.");
       setLoading(false);
       return;
     }
@@ -30,7 +30,11 @@ export default function LoginScreen() {
       setLoading(false);
       return;
     }
-    router.replace("/(student)/(tabs)/home");
+    if (profile.role === "faculty") {
+      router.replace("/(faculty)/(tabs)/home");
+    } else {
+      router.replace("/(student)/(tabs)/home");
+    }
   };
 
   return (
@@ -42,7 +46,7 @@ export default function LoginScreen() {
       </View>
       <View style={styles.card}>
         <Text style={styles.title}>Login Account</Text>
-        <Text style={styles.label}>School ID</Text>
+        <Text style={styles.label}>ID Number</Text>
         <View style={styles.inputWrap}>
           <Text style={styles.inputIcon}>🎓</Text>
           <TextInput style={styles.input} placeholder="Enter your school ID" value={studentNumber} onChangeText={setStudentNumber} autoCapitalize="none" />
