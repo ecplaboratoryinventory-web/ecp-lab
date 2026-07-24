@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Toaster, toast } from "@/components/ui/toast";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import {
   User,
   Mail,
@@ -80,6 +81,14 @@ export default function FacultyProfilePage() {
     confirm: "",
   });
   const [passwordSaving, setPasswordSaving] = useState(false);
+
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<(() => void) | null>(null);
+
+  const withConfirm = (action: () => void) => {
+    setConfirmAction(() => action);
+    setConfirmOpen(true);
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -280,10 +289,11 @@ export default function FacultyProfilePage() {
     setPasswordSaving(false);
   };
 
-  const handleLogout = async () => {
-    if (!confirm("Are you sure you want to logout?")) return;
-    await supabase.auth.signOut();
-    router.push("/auth/login");
+  const handleLogout = () => {
+    withConfirm(async () => {
+      await supabase.auth.signOut();
+      router.push("/auth/login");
+    });
   };
 
   const statCards = [
@@ -334,258 +344,269 @@ export default function FacultyProfilePage() {
   }
 
   return (
-    <Toaster>
-      <div className="space-y-6">
-        <div className="rounded-xl border border-[#dde4ec] bg-gradient-to-r from-navy to-[#253348] p-6 shadow-sm">
-          <h1 className="text-2xl font-bold text-white">My Profile</h1>
-          <p className="mt-1 text-sm text-white/70">
-            View and manage your profile information.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          {statCards.map((stat) => (
-            <div key={stat.label} className="ecp-stat-card">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm text-silver">{stat.label}</p>
-                  <p className="mt-1 text-3xl font-bold text-navy">
-                    {stat.value}
-                  </p>
-                </div>
-                <div
-                  className="flex h-10 w-10 items-center justify-center rounded-lg"
-                  style={{ backgroundColor: stat.color + "15" }}
-                >
-                  <stat.icon className="h-5 w-5" style={{ color: stat.color }} />
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <div className="lg:col-span-1 space-y-6">
-            <div className="ecp-card p-6 border-0 shadow-none">
-              <div className="flex flex-col items-center text-center">
-                <div className="mb-3 flex h-20 w-20 items-center justify-center rounded-full bg-teal text-2xl font-bold text-white">
-                  {getInitials(profile.full_name)}
-                </div>
-                <h2 className="text-lg font-bold text-navy">
-                  {profile.full_name || "Faculty"}
-                </h2>
-                <Badge className="mt-1 bg-teal-light text-teal hover:bg-teal-light">
-                  {profile.department || "No Department"}
-                </Badge>
-              </div>
-
-              <div className="mt-5 space-y-3">
-                <div className="flex items-center gap-2 text-sm">
-                  <Mail className="h-4 w-4 text-silver shrink-0" />
-                  <span className="text-slate truncate">
-                    {profile.email || "-"}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <Hash className="h-4 w-4 text-silver shrink-0" />
-                  <span className="text-slate">
-                    {profile.id_no || "-"}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <School className="h-4 w-4 text-silver shrink-0" />
-                  <span className="text-slate">
-                    {profile.department || "-"}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <Shield className="h-4 w-4 text-silver shrink-0" />
-                  <span className="text-slate capitalize">
-                    {profile.role}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <Button
-              variant="outline"
-              onClick={handleLogout}
-              className="w-full gap-2 border-red-200 text-red-500 hover:bg-red-50"
-            >
-              <LogOut className="h-4 w-4" />
-              Logout
-            </Button>
+    <>
+      <Toaster>
+        <div className="space-y-6">
+          <div className="rounded-xl border border-[#dde4ec] bg-gradient-to-r from-navy to-[#253348] p-6 shadow-sm">
+            <h1 className="text-2xl font-bold text-white">My Profile</h1>
+            <p className="mt-1 text-sm text-white/70">
+              View and manage your profile information.
+            </p>
           </div>
 
-          <div className="lg:col-span-2 space-y-6">
-            <div className="ecp-card p-6 border-0 shadow-none">
-              <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-silver">
-                Edit Profile
-              </h3>
-              <div className="space-y-4">
-                <div>
-                  <label className="text-xs font-medium text-slate">
-                    Full Name
-                  </label>
-                  <Input
-                    value={profileForm.full_name}
-                    onChange={(e) =>
-                      setProfileForm({
-                        ...profileForm,
-                        full_name: e.target.value,
-                      })
-                    }
-                    className="mt-1 border-[#dde4ec]"
-                    placeholder="Your full name"
-                  />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {statCards.map((stat) => (
+              <div key={stat.label} className="ecp-stat-card">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-sm text-silver">{stat.label}</p>
+                    <p className="mt-1 text-3xl font-bold text-navy">
+                      {stat.value}
+                    </p>
+                  </div>
+                  <div
+                    className="flex h-10 w-10 items-center justify-center rounded-lg"
+                    style={{ backgroundColor: stat.color + "15" }}
+                  >
+                    <stat.icon className="h-5 w-5" style={{ color: stat.color }} />
+                  </div>
                 </div>
-                <div>
-                  <label className="text-xs font-medium text-slate">
-                    Email
-                  </label>
-                  <Input
-                    value={profileForm.email}
-                    disabled
-                    className="mt-1 border-[#dde4ec] bg-[#f8f9fa] text-silver"
-                  />
-                </div>
-                <Button
-                  onClick={handleProfileSave}
-                  disabled={profileSaving}
-                  className="gap-1.5 bg-teal hover:bg-teal-dark"
-                >
-                  {profileSaving ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Save className="h-4 w-4" />
-                  )}
-                  {profileSaving ? "Saving..." : "Save Profile"}
-                </Button>
               </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <div className="lg:col-span-1 space-y-6">
+              <div className="ecp-card p-6 border-0 shadow-none">
+                <div className="flex flex-col items-center text-center">
+                  <div className="mb-3 flex h-20 w-20 items-center justify-center rounded-full bg-teal text-2xl font-bold text-white">
+                    {getInitials(profile.full_name)}
+                  </div>
+                  <h2 className="text-lg font-bold text-navy">
+                    {profile.full_name || "Faculty"}
+                  </h2>
+                  <Badge className="mt-1 bg-teal-light text-teal hover:bg-teal-light">
+                    {profile.department || "No Department"}
+                  </Badge>
+                </div>
+
+                <div className="mt-5 space-y-3">
+                  <div className="flex items-center gap-2 text-sm">
+                    <Mail className="h-4 w-4 text-silver shrink-0" />
+                    <span className="text-slate truncate">
+                      {profile.email || "-"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <Hash className="h-4 w-4 text-silver shrink-0" />
+                    <span className="text-slate">
+                      {profile.id_no || "-"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <School className="h-4 w-4 text-silver shrink-0" />
+                    <span className="text-slate">
+                      {profile.department || "-"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <Shield className="h-4 w-4 text-silver shrink-0" />
+                    <span className="text-slate capitalize">
+                      {profile.role}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <Button
+                variant="outline"
+                onClick={handleLogout}
+                className="w-full gap-2 border-red-200 text-red-500 hover:bg-red-50"
+              >
+                <LogOut className="h-4 w-4" />
+                Logout
+              </Button>
             </div>
 
-            <div className="ecp-card p-6 border-0 shadow-none">
-              <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-silver">
-                <Key className="h-4 w-4" />
-                Change Password
-              </h3>
-              <div className="space-y-4">
-                <div>
-                  <label className="text-xs font-medium text-slate">
-                    Current Password
-                  </label>
-                  <Input
-                    type="password"
-                    value={passwordForm.current}
-                    onChange={(e) =>
-                      setPasswordForm({
-                        ...passwordForm,
-                        current: e.target.value,
-                      })
-                    }
-                    className="mt-1 border-[#dde4ec]"
-                    placeholder="Enter current password"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
+            <div className="lg:col-span-2 space-y-6">
+              <div className="ecp-card p-6 border-0 shadow-none">
+                <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-silver">
+                  Edit Profile
+                </h3>
+                <div className="space-y-4">
                   <div>
                     <label className="text-xs font-medium text-slate">
-                      New Password
+                      Full Name
                     </label>
                     <Input
-                      type="password"
-                      value={passwordForm.new}
+                      value={profileForm.full_name}
                       onChange={(e) =>
-                        setPasswordForm({
-                          ...passwordForm,
-                          new: e.target.value,
+                        setProfileForm({
+                          ...profileForm,
+                          full_name: e.target.value,
                         })
                       }
                       className="mt-1 border-[#dde4ec]"
-                      placeholder="New password"
+                      placeholder="Your full name"
                     />
                   </div>
                   <div>
                     <label className="text-xs font-medium text-slate">
-                      Confirm Password
+                      Email
+                    </label>
+                    <Input
+                      value={profileForm.email}
+                      disabled
+                      className="mt-1 border-[#dde4ec] bg-[#f8f9fa] text-silver"
+                    />
+                  </div>
+                  <Button
+                    onClick={handleProfileSave}
+                    disabled={profileSaving}
+                    className="gap-1.5 bg-teal hover:bg-teal-dark"
+                  >
+                    {profileSaving ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="h-4 w-4" />
+                    )}
+                    {profileSaving ? "Saving..." : "Save Profile"}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="ecp-card p-6 border-0 shadow-none">
+                <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-silver">
+                  <Key className="h-4 w-4" />
+                  Change Password
+                </h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-xs font-medium text-slate">
+                      Current Password
                     </label>
                     <Input
                       type="password"
-                      value={passwordForm.confirm}
+                      value={passwordForm.current}
                       onChange={(e) =>
                         setPasswordForm({
                           ...passwordForm,
-                          confirm: e.target.value,
+                          current: e.target.value,
                         })
                       }
                       className="mt-1 border-[#dde4ec]"
-                      placeholder="Confirm new password"
+                      placeholder="Enter current password"
                     />
                   </div>
-                </div>
-                <Button
-                  onClick={handlePasswordChange}
-                  disabled={passwordSaving}
-                  className="gap-1.5 bg-teal hover:bg-teal-dark"
-                >
-                  {passwordSaving ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Key className="h-4 w-4" />
-                  )}
-                  {passwordSaving ? "Changing..." : "Change Password"}
-                </Button>
-              </div>
-            </div>
-
-            <div className="ecp-card p-6 border-0 shadow-none">
-              <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-silver">
-                Recent Activity
-              </h3>
-              {recentActivity.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <Clock className="mb-2 h-8 w-8 text-silver/40" />
-                  <p className="text-sm text-silver">No recent activity</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {recentActivity.map((a) => (
-                    <div
-                      key={a.id}
-                      className="rounded-lg border border-[#dde4ec] p-3"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-semibold text-navy truncate">
-                            {a.items}
-                          </p>
-                          <p className="mt-0.5 text-xs text-silver line-clamp-2">
-                            {a.purpose}
-                          </p>
-                          <div className="mt-1.5 flex items-center gap-2">
-                            <span className="text-[11px] text-silver">
-                              {formatDate(a.borrow_date ?? "")} &mdash;{" "}
-                              {formatDate(a.return_date ?? "")}
-                            </span>
-                          </div>
-                        </div>
-                        <Badge
-                          className={
-                            STATUS_MAP[a.status]?.className ??
-                            "bg-gray-100 text-gray-600"
-                          }
-                        >
-                          {STATUS_MAP[a.status]?.label ?? a.status}
-                        </Badge>
-                      </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-medium text-slate">
+                        New Password
+                      </label>
+                      <Input
+                        type="password"
+                        value={passwordForm.new}
+                        onChange={(e) =>
+                          setPasswordForm({
+                            ...passwordForm,
+                            new: e.target.value,
+                          })
+                        }
+                        className="mt-1 border-[#dde4ec]"
+                        placeholder="New password"
+                      />
                     </div>
-                  ))}
+                    <div>
+                      <label className="text-xs font-medium text-slate">
+                        Confirm Password
+                      </label>
+                      <Input
+                        type="password"
+                        value={passwordForm.confirm}
+                        onChange={(e) =>
+                          setPasswordForm({
+                            ...passwordForm,
+                            confirm: e.target.value,
+                          })
+                        }
+                        className="mt-1 border-[#dde4ec]"
+                        placeholder="Confirm new password"
+                      />
+                    </div>
+                  </div>
+                  <Button
+                    onClick={handlePasswordChange}
+                    disabled={passwordSaving}
+                    className="gap-1.5 bg-teal hover:bg-teal-dark"
+                  >
+                    {passwordSaving ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Key className="h-4 w-4" />
+                    )}
+                    {passwordSaving ? "Changing..." : "Change Password"}
+                  </Button>
                 </div>
-              )}
+              </div>
+
+              <div className="ecp-card p-6 border-0 shadow-none">
+                <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-silver">
+                  Recent Activity
+                </h3>
+                {recentActivity.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <Clock className="mb-2 h-8 w-8 text-silver/40" />
+                    <p className="text-sm text-silver">No recent activity</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {recentActivity.map((a) => (
+                      <div
+                        key={a.id}
+                        className="rounded-lg border border-[#dde4ec] p-3"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-semibold text-navy truncate">
+                              {a.items}
+                            </p>
+                            <p className="mt-0.5 text-xs text-silver line-clamp-2">
+                              {a.purpose}
+                            </p>
+                            <div className="mt-1.5 flex items-center gap-2">
+                              <span className="text-[11px] text-silver">
+                                {formatDate(a.borrow_date ?? "")} &mdash;{" "}
+                                {formatDate(a.return_date ?? "")}
+                              </span>
+                            </div>
+                          </div>
+                          <Badge
+                            className={
+                              STATUS_MAP[a.status]?.className ??
+                              "bg-gray-100 text-gray-600"
+                            }
+                          >
+                            {STATUS_MAP[a.status]?.label ?? a.status}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    </Toaster>
+      </Toaster>
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="Logout?"
+        description="Are you sure you want to logout?"
+        confirmLabel="Logout"
+        variant="danger"
+        onConfirm={() => { confirmAction?.(); setConfirmOpen(false); }}
+      />
+    </>
   );
 }

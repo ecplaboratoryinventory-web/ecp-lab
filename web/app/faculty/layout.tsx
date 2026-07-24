@@ -13,6 +13,7 @@ import {
   FlaskConical,
   ScrollText,
 } from "lucide-react";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 
 export default function FacultyLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -21,6 +22,14 @@ export default function FacultyLayout({ children }: { children: React.ReactNode 
   const [userName, setUserName] = useState("");
   const [userDept, setUserDept] = useState("");
   const [checking, setChecking] = useState(true);
+
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<(() => void) | null>(null);
+
+  const withConfirm = (action: () => void) => {
+    setConfirmAction(() => action);
+    setConfirmOpen(true);
+  };
 
   useEffect(() => {
     const fetch = async () => {
@@ -51,10 +60,11 @@ export default function FacultyLayout({ children }: { children: React.ReactNode 
     );
   }
 
-  const handleLogout = async () => {
-    if (!confirm("Are you sure you want to logout?")) return;
-    await supabase.auth.signOut();
-    router.push("/auth/login");
+  const handleLogout = () => {
+    withConfirm(async () => {
+      await supabase.auth.signOut();
+      router.push("/auth/login");
+    });
   };
 
   const mainNav = [
@@ -70,7 +80,8 @@ export default function FacultyLayout({ children }: { children: React.ReactNode 
   ];
 
   return (
-    <div style={{ fontFamily: "'DM Sans', sans-serif" }}>
+    <>
+      <div style={{ fontFamily: "'DM Sans', sans-serif" }}>
       <style>{`
         *, *::before, *::after { box-sizing: border-box; }
         body { margin: 0; }
@@ -187,5 +198,15 @@ export default function FacultyLayout({ children }: { children: React.ReactNode 
         <main className="flex-1 p-6">{children}</main>
       </div>
     </div>
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="Logout?"
+        description="Are you sure you want to logout?"
+        confirmLabel="Logout"
+        variant="danger"
+        onConfirm={() => { confirmAction?.(); setConfirmOpen(false); }}
+      />
+    </>
   );
 }

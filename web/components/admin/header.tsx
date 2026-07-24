@@ -4,11 +4,20 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Bell, ChevronDown, LogOut, User } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 
 export function AdminHeader() {
   const router = useRouter();
   const [name, setName] = useState("Administrator");
   const [unreadCount, setUnreadCount] = useState(0);
+
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<(() => void) | null>(null);
+
+  const withConfirm = (action: () => void) => {
+    setConfirmAction(() => action);
+    setConfirmOpen(true);
+  };
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -24,15 +33,17 @@ export function AdminHeader() {
     fetchUser();
   }, []);
 
-  const handleLogout = async () => {
-    if (!confirm("Are you sure you want to logout?")) return;
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push("/auth/login");
+  const handleLogout = () => {
+    withConfirm(async () => {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+      router.push("/auth/login");
+    });
   };
 
   return (
-    <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-[#dde4ec] bg-white px-6 shadow-sm">
+    <>
+      <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-[#dde4ec] bg-white px-6 shadow-sm">
       <div>
         <h1 className="text-xl font-semibold text-navy">Dashboard</h1>
       </div>
@@ -67,5 +78,15 @@ export function AdminHeader() {
         </div>
       </div>
     </header>
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="Logout?"
+        description="Are you sure you want to logout?"
+        confirmLabel="Logout"
+        variant="danger"
+        onConfirm={() => { confirmAction?.(); setConfirmOpen(false); }}
+      />
+    </>
   );
 }
