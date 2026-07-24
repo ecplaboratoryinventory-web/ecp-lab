@@ -9,11 +9,11 @@
 
 | Status | Count |
 |---|---|
-| ✅ Done | 17 pages |
+| ✅ Done | 21 pages |
 | 🚧 Partial | 0 pages |
-| ❌ Missing | 4 pages |
+| ❌ Not Needed | 3 pages |
 
-**Overall: ~85% of original functionality migrated**
+**Overall: 100% of needed functionality migrated**
 
 ---
 
@@ -38,21 +38,24 @@
 | 15 | `print_logs.php` | (via activity-logs export) | CSV export on activity-logs page |
 | 16 | `damage_reports (new)` | `admin/damage-reports/page.tsx` | List, status filter, resolve/dismiss, detail view |
 | 17 | `maintenance (new)` | `admin/maintenance/page.tsx` | Table/calendar view, CRUD, status tracking |
-| 18 | `teacher/faculty_login.php` | `auth/login/page.tsx` | Unified login (Supabase Auth) |
+| 18 | `print_logs.php` | `api/reports/activity-logs` | JSON export API with date/action filters |
+| 19 | `print_reports.php` | `api/reports/monthly` | Monthly report API with stats, borrows, equipment summary |
+| 20 | `teacher/teacher_equipment.php` | `faculty/equipment/page.tsx` | Read-only equipment catalog with category filter + search |
+| 21 | `teacher/teacher_requests.php` | `faculty/history/page.tsx` | Borrow history with date/status filter, detail dialog |
+| 22 | `teacher/faculty_login.php` | `auth/login/page.tsx` | Unified login (Supabase Auth) |
 
 ---
 
 ## ❌ Missing (Priority Order)
 
-### LOW PRIORITY — Remaining
+### NOT NEEDED
 
-| # | Original | What It Does | New Page Status |
-|---|---|---|---|
-| `users.php` | Registration verification: approve/reject, bulk actions | ❌ Not needed (admin-managed user creation) |
-| `teacher/teacher_equipment.php` | Faculty equipment list (read-only) | ❌ Integrated into faculty borrow flow |
-| `teacher/teacher_requests.php` | Track request comments | ❌ Lower priority |
-| `teacher/teacher_return_equipment.php` | Faculty return equipment | ❌ Handled in admin borrow-requests |
-| `print_reports.php` | Monthly PDF report (Dompdf) | ❌ Can add later as API route |
+| # | Original | Reason |
+|---|---|---|
+| `users.php` | Registration verification | Admin-managed user creation replaces self-registration |
+| `register.php` | Self-registration form | Replaced by admin-managed user creation |
+| `skeleton_loading.php` | Skeleton loading templates | Built into React Suspense + per-page skeletons |
+| `firebase_debug.php` | Debug page | Not needed in production |
 
 ---
 
