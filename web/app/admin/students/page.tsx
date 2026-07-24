@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { toast } from "@/components/shared/toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -179,6 +180,36 @@ export default function StudentsPage() {
   };
 
   const handleSave = async () => {
+    if (!form.firstname.trim()) {
+      toast({ title: "Validation Error", description: "First name is required.", variant: "error" });
+      return;
+    }
+    if (!form.lastname.trim()) {
+      toast({ title: "Validation Error", description: "Last name is required.", variant: "error" });
+      return;
+    }
+    if (!form.id_no.trim()) {
+      toast({ title: "Validation Error", description: "Student number is required.", variant: "error" });
+      return;
+    }
+    if (!form.course) {
+      toast({ title: "Validation Error", description: "Course is required.", variant: "error" });
+      return;
+    }
+
+    if (form.id_no.trim()) {
+      const { data: existing } = await supabase
+        .from("users")
+        .select("id")
+        .eq("id_no", form.id_no.trim())
+        .eq("role", "student")
+        .maybeSingle();
+      if (existing && existing.id !== editingId) {
+        toast({ title: "Validation Error", description: "Student number already exists!", variant: "error" });
+        return;
+      }
+    }
+
     const payload = {
       firstname: form.firstname.trim(),
       lastname: form.lastname.trim(),
@@ -189,18 +220,19 @@ export default function StudentsPage() {
       section: form.section.trim() || null,
     };
 
-    if (!payload.firstname || !payload.lastname || !payload.email) return;
-
     if (editingId) {
       await supabase.from("users").update(payload).eq("id", editingId);
+      toast({ title: "Success", description: "Student updated.", variant: "success" });
     } else {
+      const password = form.password.trim() || `${form.lastname.trim()}123`;
       await supabase.from("users").insert({
         ...payload,
         role: "student",
         approved: true,
         status: "active",
-        password: form.password.trim() || "Password123",
+        password,
       });
+      toast({ title: "Success", description: "Student added.", variant: "success" });
     }
     setModalOpen(false);
     fetchData();
@@ -217,6 +249,7 @@ export default function StudentsPage() {
     setDeleteOpen(false);
     setDeletingId(null);
     fetchData();
+    toast({ title: "Deleted", description: "Student removed.", variant: "success" });
   };
 
   const handleExportCSV = () => {
@@ -260,8 +293,8 @@ export default function StudentsPage() {
       const headers = lines[0].split(",").map((h) => h.trim().toLowerCase().replace(/["\r]/g, ""));
       setCsvHeaders(lines[0].split(",").map((h) => h.trim().replace(/["\r]/g, "")));
 
-      const validColumns = ["firstname", "lastname", "middlename", "id_no", "email", "course", "section", "enrolled_subjects"];
-      const missing = validColumns.filter((c) => !headers.includes(c));
+      const requiredColumns = ["firstname", "lastname", "id_no", "course"];
+      const missing = requiredColumns.filter((c) => !headers.includes(c));
       if (missing.length > 0) {
         setCsvError(`Missing required columns: ${missing.join(", ")}`);
         return;
@@ -294,7 +327,7 @@ export default function StudentsPage() {
     if (csvPreview.length === 0) return;
     setImporting(true);
     const toInsert = csvPreview
-      .filter((r) => r.firstname && r.lastname && r.email)
+      .filter((r) => r.firstname && r.lastname && r.id_no && r.course)
       .map((r) => ({
         firstname: r.firstname,
         lastname: r.lastname,
@@ -309,11 +342,13 @@ export default function StudentsPage() {
         role: "student",
         approved: true,
         status: "active",
-        password: "Password123",
+        password: `${r.lastname}123`,
       }));
 
+    let imported = 0;
     for (const row of toInsert) {
-      await supabase.from("users").insert(row);
+      const { error } = await supabase.from("users").insert(row);
+      if (!error) imported++;
     }
     setImporting(false);
     setImportOpen(false);
@@ -321,6 +356,7 @@ export default function StudentsPage() {
     setCsvHeaders([]);
     if (fileInputRef.current) fileInputRef.current.value = "";
     fetchData();
+    toast({ title: "Import Complete", description: `${imported} of ${csvPreview.length} students imported.`, variant: "success" });
   };
 
   const statuses = [
@@ -501,7 +537,7 @@ export default function StudentsPage() {
           </DialogHeader>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-slate">First Name *</label>
+              <label className="text-xs font-medium text-slate">First Name <span className="text-red-500">*</span></label>
               <Input
                 value={form.firstname}
                 onChange={(e) => setForm({ ...form, firstname: e.target.value })}
@@ -510,7 +546,7 @@ export default function StudentsPage() {
               />
             </div>
             <div>
-              <label className="text-xs font-medium text-slate">Last Name *</label>
+              <label className="text-xs font-medium text-slate">Last Name <span className="text-red-500">*</span></label>
               <Input
                 value={form.lastname}
                 onChange={(e) => setForm({ ...form, lastname: e.target.value })}
@@ -528,7 +564,7 @@ export default function StudentsPage() {
               />
             </div>
             <div>
-              <label className="text-xs font-medium text-slate">Student #</label>
+              <label className="text-xs font-medium text-slate">Student # <span className="text-red-500">*</span></label>
               <Input
                 value={form.id_no}
                 onChange={(e) => setForm({ ...form, id_no: e.target.value })}
@@ -537,7 +573,7 @@ export default function StudentsPage() {
               />
             </div>
             <div className="col-span-2">
-              <label className="text-xs font-medium text-slate">Email *</label>
+              <label className="text-xs font-medium text-slate">Email</label>
               <Input
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
@@ -547,7 +583,7 @@ export default function StudentsPage() {
               />
             </div>
             <div>
-              <label className="text-xs font-medium text-slate">Course</label>
+              <label className="text-xs font-medium text-slate">Course <span className="text-red-500">*</span></label>
               <Select value={form.course || undefined} onValueChange={(v) => setForm({ ...form, course: v || "" })}>
                 <SelectTrigger className="mt-1 border-[#dde4ec]">
                   <SelectValue placeholder="Select course..." />
@@ -572,13 +608,13 @@ export default function StudentsPage() {
             </div>
             <div className="col-span-2">
               <label className="text-xs font-medium text-slate">
-                Password {editingId ? "(leave blank to keep current)" : "(default: Password123)"}
+                Password {editingId ? "(leave blank to keep current)" : "(default: Lastname123)"}
               </label>
               <Input
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
                 className="mt-1 border-[#dde4ec]"
-                placeholder={editingId ? "Leave blank to keep current" : "Password123"}
+                placeholder={editingId ? "Leave blank to keep current" : "Lastname123"}
                 type="password"
               />
             </div>
@@ -632,7 +668,7 @@ export default function StudentsPage() {
           <DialogHeader>
             <DialogTitle className="text-navy">Import Students from CSV</DialogTitle>
             <DialogDescription className="text-silver">
-              Upload a CSV file with columns: firstname, lastname, middlename, id_no, email, course, section, enrolled_subjects
+              Upload a CSV file with columns: firstname, lastname, id_no, course (required), plus middlename, email, section, enrolled_subjects
             </DialogDescription>
           </DialogHeader>
 

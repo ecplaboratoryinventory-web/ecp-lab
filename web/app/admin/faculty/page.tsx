@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { toast } from "@/components/shared/toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -75,6 +76,7 @@ export default function FacultyPage() {
   const [csvImporting, setCsvImporting] = useState(false);
   const [csvResult, setCsvResult] = useState<{ imported: number; skipped: number; duplicates: number } | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [csvError, setCsvError] = useState("");
 
   const [form, setForm] = useState({
     firstname: "",
@@ -203,7 +205,54 @@ export default function FacultyPage() {
   };
 
   const handleSave = async () => {
-    if (!form.email.trim() || !form.lastname.trim() || !form.firstname.trim()) return;
+    if (!form.firstname.trim()) {
+      toast({ title: "Validation Error", description: "First name is required.", variant: "error" });
+      return;
+    }
+    if (!form.lastname.trim()) {
+      toast({ title: "Validation Error", description: "Last name is required.", variant: "error" });
+      return;
+    }
+    if (!form.email.trim()) {
+      toast({ title: "Validation Error", description: "Email is required.", variant: "error" });
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(form.email.trim())) {
+      toast({ title: "Validation Error", description: "Please enter a valid email address.", variant: "error" });
+      return;
+    }
+    if (!form.id_no.trim()) {
+      toast({ title: "Validation Error", description: "ID Number is required.", variant: "error" });
+      return;
+    }
+    if (!form.department) {
+      toast({ title: "Validation Error", description: "Please select a department.", variant: "error" });
+      return;
+    }
+
+    if (form.email.trim()) {
+      const { data: existingEmail } = await supabase
+        .from("users")
+        .select("id")
+        .eq("email", form.email.trim())
+        .maybeSingle();
+      if (existingEmail && existingEmail.id !== editingId) {
+        toast({ title: "Validation Error", description: "Email already exists!", variant: "error" });
+        return;
+      }
+    }
+    if (form.id_no.trim()) {
+      const { data: existingId } = await supabase
+        .from("users")
+        .select("id")
+        .eq("id_no", form.id_no.trim())
+        .maybeSingle();
+      if (existingId && existingId.id !== editingId) {
+        toast({ title: "Validation Error", description: "ID Number already exists!", variant: "error" });
+        return;
+      }
+    }
 
     const payload = {
       firstname: form.firstname.trim(),
@@ -221,14 +270,16 @@ export default function FacultyPage() {
         updatePayload.password = form.password;
       }
       await supabase.from("users").update(updatePayload).eq("id", editingId);
+      toast({ title: "Success", description: "Faculty updated.", variant: "success" });
     } else {
-      if (!form.password.trim()) return;
+      const password = form.password.trim() || `${form.lastname.trim()}123`;
       await supabase.from("users").insert({
         ...payload,
-        password: form.password,
+        password,
         status: "active",
         approved: true,
       });
+      toast({ title: "Success", description: "Faculty added.", variant: "success" });
     }
 
     setModalOpen(false);
@@ -243,6 +294,7 @@ export default function FacultyPage() {
     setDeletingId(null);
     fetchFaculty();
     fetchStats();
+    toast({ title: "Deleted", description: "Faculty removed.", variant: "success" });
   };
 
   const handleToggleStatus = async (f: FacultyUser) => {
@@ -294,6 +346,9 @@ export default function FacultyPage() {
   const handleCsvFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setCsvData([]);
+    setCsvResult(null);
+    setCsvError("");
 
     const reader = new FileReader();
     reader.onload = (ev) => {
@@ -305,11 +360,18 @@ export default function FacultyPage() {
         .filter((l) => l);
 
       if (lines.length < 2) {
-        setCsvData([]);
+        setCsvError("CSV file must have a header row and at least one data row.");
         return;
       }
 
       const headers = lines[0].toLowerCase().split(",");
+      const requiredColumns = ["firstname", "lastname", "email", "id_no", "department"];
+      const missing = requiredColumns.filter((c) => !headers.includes(c));
+      if (missing.length > 0) {
+        setCsvError(`Missing required columns: ${missing.join(", ")}`);
+        return;
+      }
+
       const firstnameIdx = headers.indexOf("firstname");
       const lastnameIdx = headers.indexOf("lastname");
       const middlenameIdx = headers.indexOf("middlename");
@@ -330,7 +392,6 @@ export default function FacultyPage() {
         });
       }
       setCsvData(parsed);
-      setCsvResult(null);
     };
     reader.readAsText(file);
   };
@@ -342,7 +403,7 @@ export default function FacultyPage() {
     let duplicates = 0;
 
     for (const row of csvData) {
-      if (!row.email || !row.firstname || !row.lastname) {
+      if (!row.email || !row.firstname || !row.lastname || !row.id_no || !row.department) {
         skipped++;
         continue;
       }
@@ -368,7 +429,7 @@ export default function FacultyPage() {
         role: "faculty",
         status: "active",
         approved: true,
-        password: "changeme123",
+        password: `${row.lastname}123`,
       });
 
       if (error) {
@@ -382,6 +443,7 @@ export default function FacultyPage() {
     setCsvImporting(false);
     fetchFaculty();
     fetchStats();
+    toast({ title: "Import Complete", description: `${imported} imported, ${skipped} skipped, ${duplicates} duplicates.`, variant: "success" });
   };
 
   const statCards = [
@@ -447,7 +509,7 @@ export default function FacultyPage() {
             <Button variant="outline" size="sm" onClick={handleExportCSV} className="gap-1.5 border-[#dde4ec] text-slate">
               <Download className="h-3.5 w-3.5" /> Export CSV
             </Button>
-            <Button variant="outline" size="sm" onClick={() => { setCsvOpen(true); setCsvData([]); setCsvResult(null); }} className="gap-1.5 border-[#dde4ec] text-slate">
+            <Button variant="outline" size="sm" onClick={() => { setCsvOpen(true); setCsvData([]); setCsvResult(null); setCsvError(""); }} className="gap-1.5 border-[#dde4ec] text-slate">
               <Upload className="h-3.5 w-3.5" /> Import CSV
             </Button>
             <Button size="sm" onClick={openCreate} className="gap-1.5 bg-teal hover:bg-teal-dark">
@@ -664,11 +726,11 @@ export default function FacultyPage() {
           </DialogHeader>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-slate">First Name *</label>
+              <label className="text-xs font-medium text-slate">First Name <span className="text-red-500">*</span></label>
               <Input value={form.firstname} onChange={(e) => setForm({ ...form, firstname: e.target.value })} className="mt-1 border-[#dde4ec]" placeholder="Juan" />
             </div>
             <div>
-              <label className="text-xs font-medium text-slate">Last Name *</label>
+              <label className="text-xs font-medium text-slate">Last Name <span className="text-red-500">*</span></label>
               <Input value={form.lastname} onChange={(e) => setForm({ ...form, lastname: e.target.value })} className="mt-1 border-[#dde4ec]" placeholder="Dela Cruz" />
             </div>
             <div>
@@ -676,15 +738,15 @@ export default function FacultyPage() {
               <Input value={form.middlename} onChange={(e) => setForm({ ...form, middlename: e.target.value })} className="mt-1 border-[#dde4ec]" placeholder="Santos" />
             </div>
             <div>
-              <label className="text-xs font-medium text-slate">ID Number</label>
+              <label className="text-xs font-medium text-slate">ID Number <span className="text-red-500">*</span></label>
               <Input value={form.id_no} onChange={(e) => setForm({ ...form, id_no: e.target.value })} className="mt-1 border-[#dde4ec]" placeholder="F12345" />
             </div>
             <div className="col-span-2">
-              <label className="text-xs font-medium text-slate">Email *</label>
+              <label className="text-xs font-medium text-slate">Email <span className="text-red-500">*</span></label>
               <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="mt-1 border-[#dde4ec]" placeholder="faculty@ecp.edu.ph" />
             </div>
             <div>
-              <label className="text-xs font-medium text-slate">Department</label>
+              <label className="text-xs font-medium text-slate">Department <span className="text-red-500">*</span></label>
               <Select value={form.department || undefined} onValueChange={(v) => setForm({ ...form, department: v || "" })}>
                 <SelectTrigger className="mt-1 border-[#dde4ec]"><SelectValue placeholder="Select..." /></SelectTrigger>
                 <SelectContent>
@@ -703,8 +765,8 @@ export default function FacultyPage() {
               </Select>
             </div>
             <div className="col-span-2">
-              <label className="text-xs font-medium text-slate">Password {editingId ? "(leave blank to keep current)" : "*"}</label>
-              <Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="mt-1 border-[#dde4ec]" placeholder={editingId ? "••••••••" : "Enter password"} />
+              <label className="text-xs font-medium text-slate">Password {editingId ? "(leave blank to keep current)" : "(default: Lastname123)"}</label>
+              <Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="mt-1 border-[#dde4ec]" placeholder={editingId ? "Leave blank to keep current" : "Lastname123"} />
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">
@@ -776,7 +838,7 @@ export default function FacultyPage() {
             <div className="rounded-lg border border-dashed border-[#dde4ec] bg-[#f8f9fa] p-6 text-center">
               <Upload className="mx-auto h-8 w-8 text-silver" />
               <p className="mt-2 text-sm text-silver">Select a CSV file to import faculty members</p>
-              <p className="mt-1 text-xs text-silver/60">Columns: firstname,lastname,middlename,email,id_no,department</p>
+              <p className="mt-1 text-xs text-silver/60">Required columns: firstname, lastname, email, id_no, department</p>
               <Input
                 type="file"
                 accept=".csv"
@@ -784,6 +846,12 @@ export default function FacultyPage() {
                 className="mt-3 border-[#dde4ec]"
               />
             </div>
+
+            {csvError && (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+                {csvError}
+              </div>
+            )}
 
             {csvData.length > 0 && (
               <>

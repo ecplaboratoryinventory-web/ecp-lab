@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { toast } from "@/components/shared/toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -135,6 +136,26 @@ export default function EquipmentPage() {
   };
 
   const handleSave = async () => {
+    if (!form.name.trim()) {
+      toast({ title: "Validation Error", description: "Equipment name is required.", variant: "error" });
+      return;
+    }
+    if (form.quantity < 1) {
+      toast({ title: "Validation Error", description: "Quantity must be at least 1.", variant: "error" });
+      return;
+    }
+    if (form.serial_number.trim()) {
+      const { data: existing } = await supabase
+        .from("equipment")
+        .select("id")
+        .eq("serial_number", form.serial_number.trim())
+        .maybeSingle();
+      if (existing && existing.id !== editingId) {
+        toast({ title: "Validation Error", description: "Serial number already exists!", variant: "error" });
+        return;
+      }
+    }
+
     if (editingId) {
       await supabase.from("equipment").update(form).eq("id", editingId);
     } else {
@@ -142,12 +163,14 @@ export default function EquipmentPage() {
     }
     setModalOpen(false);
     fetchData();
+    toast({ title: "Success", description: editingId ? "Equipment updated." : "Equipment added.", variant: "success" });
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this equipment?")) return;
     await supabase.from("equipment").delete().eq("id", id);
     fetchData();
+    toast({ title: "Deleted", description: "Equipment removed.", variant: "success" });
   };
 
   const handleExportCSV = () => {
@@ -343,7 +366,7 @@ export default function EquipmentPage() {
           </DialogHeader>
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2">
-              <label className="text-xs font-medium text-slate">Name *</label>
+              <label className="text-xs font-medium text-slate">Name <span className="text-red-500">*</span></label>
               <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="mt-1 border-[#dde4ec]" />
             </div>
             <div>
@@ -360,7 +383,7 @@ export default function EquipmentPage() {
               </Select>
             </div>
             <div>
-              <label className="text-xs font-medium text-slate">Quantity *</label>
+              <label className="text-xs font-medium text-slate">Quantity <span className="text-red-500">*</span></label>
               <Input type="number" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: +e.target.value })} className="mt-1 border-[#dde4ec]" />
             </div>
             <div>
