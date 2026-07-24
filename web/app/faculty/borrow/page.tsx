@@ -309,7 +309,7 @@ export default function BorrowPage() {
 
   return (
     <Toaster>
-      <div className="mx-auto max-w-7xl">
+      <div>
         <div className="mb-6 rounded-xl border border-[#dde4ec] bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
@@ -410,7 +410,7 @@ export default function BorrowPage() {
                 <p className="text-silver">No equipment available</p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+              <div className="mx-auto grid max-w-6xl grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                 {equipment.map((eq) => {
                   const catColors: Record<string, { from: string; to: string }> = {
                     Microcontrollers: { from: "#1A2980", to: "#26D0CE" },
