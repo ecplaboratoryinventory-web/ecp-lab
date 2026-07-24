@@ -32,7 +32,7 @@ export default function LandingPage() {
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4" style={{ height: 58 }}>
           <Link href="/" className="flex items-center gap-[11px] no-underline">
             <div className="flex h-[38px] w-[38px] items-center justify-center rounded border border-white/20 bg-white/10">
-              <Image src="/images/logo.png" alt="ECP Logo" width={24} height={24} className="h-6 w-auto" />
+              <Image src="/images/Engineering innovation in motion.png" alt="ECP Logo" width={24} height={24} className="h-6 w-auto" />
             </div>
             <div style={{ lineHeight: 1.2 }}>
               <span className="block text-base font-bold text-white">ECP Inventory Lab</span>
@@ -88,7 +88,7 @@ export default function LandingPage() {
         {/* Hero Content */}
         <div className="relative z-10 mx-auto max-w-3xl px-4">
           <div className="mb-6 inline-flex h-[100px] w-[100px] items-center justify-center rounded-full border-2 border-white/20 bg-white/5">
-            <Image src="/images/logo.png" alt="ECP Logo" width={60} height={60} className="h-[60px] w-auto" />
+            <Image src="/images/Engineering innovation in motion.png" alt="ECP Logo" width={60} height={60} className="h-[60px] w-auto rounded-full" />
           </div>
           <h1 className="mb-2 text-[2.6rem] font-black leading-tight tracking-tight text-white">
             ECP Inventory Lab
