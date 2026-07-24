@@ -9,11 +9,11 @@
 
 | Status | Count |
 |---|---|
-| ✅ Done | 7 pages |
-| 🚧 Partial | 1 page |
-| ❌ Missing | 13 pages |
+| ✅ Done | 11 pages |
+| 🚧 Partial | 0 pages |
+| ❌ Missing | 10 pages |
 
-**Overall: ~38% of original functionality migrated**
+**Overall: ~55% of original functionality migrated**
 
 ---
 
@@ -27,30 +27,17 @@
 | 4 | `students.php` | `admin/students/page.tsx` | CRUD, CSV import/export, search, stats, status filter |
 | 5 | `manage_account.php` | `admin/faculty/page.tsx` | CRUD, batch CSV upload, activate/deactivate, pagination, role tabs |
 | 6 | `logs.php` | `admin/activity-logs/page.tsx` | Table + 6 pie charts, date filter, action filter, pagination |
-| 7 | `teacher/faculty_login.php` | `auth/login/page.tsx` | Unified login (Supabase Auth) |
-
----
-
-## 🚧 Partial
-
-| # | Original | New | Missing Features |
-|---|---|---|---|
-| 4 | `borrowings.php` | `admin/borrow-requests/page.tsx` | Return modal, damage/replace modals, 3-hour countdown timer, overdue detection, partial return, notifications, sort dropdown, advanced stat cards |
+| 7 | `borrowings.php` | `admin/borrow-requests/page.tsx` | Dual tab, status filters, approve/reject, return modal, damage report, countdown timer, overdue banner |
+| 8 | `teacher/teacher_dashboard.php` | `faculty/dashboard/page.tsx` | Stats, charts, current borrows, notifications, schedule preview |
+| 9 | `teacher/teacher_borrow_equipment.php` | `faculty/borrow/page.tsx` | 3-step wizard, auto-approved, category filter, qty stepper |
+| 10 | `teacher/student_borrow.php` | `faculty/approvals/page.tsx` | Card list, approve/deny, expandable detail, status tabs |
+| 11 | `teacher/faculty_login.php` | `auth/login/page.tsx` | Unified login (Supabase Auth) |
 
 ---
 
 ## ❌ Missing (Priority Order)
 
-### HIGH PRIORITY — Core Admin Pages
-
-| # | Original | What It Does | New Page Status |
-|---|---|---|---|
-| 5 | `students.php` | ~~Student CRUD, CSV import/export, search, stats~~ | ✅ DONE — `admin/students/page.tsx` |
-| 6 | `manage_account.php` | ~~Faculty account CRUD, batch CSV upload, activate/deactivate, pagination~~ | ✅ DONE — `admin/faculty/page.tsx` |
-| 7 | `logs.php` | ~~Activity log table + 6 charts, date filter, print/export~~ | ✅ DONE — `admin/activity-logs/page.tsx` |
-| 10 | `users.php` | Registration verification: approve/reject, bulk actions, stats | No page exists |
-
-### MEDIUM PRIORITY — Admin Features
+### MEDIUM PRIORITY — Remaining Admin Pages
 
 | # | Original | What It Does | New Page Status |
 |---|---|---|---|
@@ -63,12 +50,12 @@
 
 | # | Original | What It Does | New Page Status |
 |---|---|---|---|
-| 13 | `teacher/teacher_dashboard.php` | Faculty dashboard: stats, charts, recent borrows | `faculty/dashboard/page.tsx` — placeholder |
-| 15 | `teacher/teacher_borrow_equipment.php` | Faculty borrow equipment form | `faculty/borrow/page.tsx` — placeholder |
+| 13 | `teacher/teacher_dashboard.php` | ~~Faculty dashboard: stats, charts, recent borrows~~ | ✅ DONE — `faculty/dashboard/page.tsx` |
+| 15 | `teacher/teacher_borrow_equipment.php` | ~~Faculty borrow equipment form~~ | ✅ DONE — `faculty/borrow/page.tsx` |
+| 18 | `teacher/student_borrow.php` | ~~Faculty manages student borrowings (approve/reject/return)~~ | ✅ DONE — `faculty/approvals/page.tsx` |
 | 14 | `teacher/teacher_equipment.php` | Faculty equipment list (read-only) | No page (in borrow flow) |
-| 16 | `teacher/teacher_return_equipment.php` | Return equipment: stock restore | No page exists |
-| 17 | `teacher/teacher_requests.php` | Track request comments | `faculty/approvals/page.tsx` — placeholder |
-| 18 | `teacher/student_borrow.php` | Faculty manages student borrowings (approve/reject/return) | No page exists |
+| 16 | `teacher/teacher_return_equipment.php` | Return equipment: stock restore | Handled in admin borrow-requests |
+| 17 | `teacher/teacher_requests.php` | Track request comments | No page exists |
 | 19 | `teacher/teacher_announcement.php` | Faculty announcement view | `admin/announcements/page.tsx` — placeholder |
 | 20 | `teacher/profile_teacher.php` | Faculty profile: photo, password change | No page exists |
 
