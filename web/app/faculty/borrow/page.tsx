@@ -487,9 +487,14 @@ export default function BorrowPage() {
             {selectedIds.size > 0 && (
               <div className="fixed bottom-0 left-0 right-0 border-t border-[#dde4ec] bg-white p-4 shadow-lg z-10">
                 <div className="mx-auto flex max-w-5xl items-center justify-between">
-                  <span className="text-sm font-semibold text-navy">
-                    {selectedIds.size} item{selectedIds.size !== 1 ? "s" : ""} selected
-                  </span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-semibold text-navy">
+                      {selectedIds.size} item{selectedIds.size !== 1 ? "s" : ""} selected
+                    </span>
+                    <button onClick={() => setSelectedIds(new Set())} className="text-xs font-medium text-red-500 hover:text-red-600">
+                      Clear
+                    </button>
+                  </div>
                   <Button
                     onClick={goToStep2}
                     className="gap-1.5 bg-teal hover:bg-teal-dark"
