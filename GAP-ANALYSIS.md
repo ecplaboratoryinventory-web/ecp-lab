@@ -9,11 +9,11 @@
 
 | Status | Count |
 |---|---|
-| ✅ Done | 11 pages |
+| ✅ Done | 17 pages |
 | 🚧 Partial | 0 pages |
-| ❌ Missing | 10 pages |
+| ❌ Missing | 4 pages |
 
-**Overall: ~55% of original functionality migrated**
+**Overall: ~85% of original functionality migrated**
 
 ---
 
@@ -28,36 +28,31 @@
 | 5 | `manage_account.php` | `admin/faculty/page.tsx` | CRUD, batch CSV upload, activate/deactivate, pagination, role tabs |
 | 6 | `logs.php` | `admin/activity-logs/page.tsx` | Table + 6 pie charts, date filter, action filter, pagination |
 | 7 | `borrowings.php` | `admin/borrow-requests/page.tsx` | Dual tab, status filters, approve/reject, return modal, damage report, countdown timer, overdue banner |
-| 8 | `teacher/teacher_dashboard.php` | `faculty/dashboard/page.tsx` | Stats, charts, current borrows, notifications, schedule preview |
-| 9 | `teacher/teacher_borrow_equipment.php` | `faculty/borrow/page.tsx` | 3-step wizard, auto-approved, category filter, qty stepper |
-| 10 | `teacher/student_borrow.php` | `faculty/approvals/page.tsx` | Card list, approve/deny, expandable detail, status tabs |
-| 11 | `teacher/faculty_login.php` | `auth/login/page.tsx` | Unified login (Supabase Auth) |
+| 8 | `notifications.php` | `admin/notifications/page.tsx` | List, mark read/unread, delete, type icons, relative timestamps |
+| 9 | `profile.php` | `admin/settings/page.tsx` | Profile tab: edit name/email, change password, stats; System tab: config |
+| 10 | `teacher/teacher_dashboard.php` | `faculty/dashboard/page.tsx` | Stats, charts, current borrows, notifications, schedule preview |
+| 11 | `teacher/teacher_borrow_equipment.php` | `faculty/borrow/page.tsx` | 3-step wizard, auto-approved, category filter, qty stepper |
+| 12 | `teacher/student_borrow.php` | `faculty/approvals/page.tsx` | Card list, approve/deny, expandable detail, status tabs |
+| 13 | `teacher/profile_teacher.php` | `faculty/profile/page.tsx` | Avatar, edit profile, change password, stats, recent activity |
+| 14 | `teacher/teacher_announcement.php` | `admin/announcements/page.tsx` | Card grid, CRUD, target role, priority, active/inactive toggle |
+| 15 | `print_logs.php` | (via activity-logs export) | CSV export on activity-logs page |
+| 16 | `damage_reports (new)` | `admin/damage-reports/page.tsx` | List, status filter, resolve/dismiss, detail view |
+| 17 | `maintenance (new)` | `admin/maintenance/page.tsx` | Table/calendar view, CRUD, status tracking |
+| 18 | `teacher/faculty_login.php` | `auth/login/page.tsx` | Unified login (Supabase Auth) |
 
 ---
 
 ## ❌ Missing (Priority Order)
 
-### MEDIUM PRIORITY — Remaining Admin Pages
+### LOW PRIORITY — Remaining
 
 | # | Original | What It Does | New Page Status |
 |---|---|---|---|
-| 11 | `print_logs.php` | Activity log PDF via Dompdf | No page exists |
-| 12 | `print_reports.php` | Monthly report PDF via Dompdf | No page exists |
-| 8 | `notifications.php` | Notification inbox: read/unread, delete | No page exists |
-| 9 | `profile.php` | Admin profile: photo upload, password change, stats | Partially in settings page |
-
-### MEDIUM PRIORITY — Faculty Pages
-
-| # | Original | What It Does | New Page Status |
-|---|---|---|---|
-| 13 | `teacher/teacher_dashboard.php` | ~~Faculty dashboard: stats, charts, recent borrows~~ | ✅ DONE — `faculty/dashboard/page.tsx` |
-| 15 | `teacher/teacher_borrow_equipment.php` | ~~Faculty borrow equipment form~~ | ✅ DONE — `faculty/borrow/page.tsx` |
-| 18 | `teacher/student_borrow.php` | ~~Faculty manages student borrowings (approve/reject/return)~~ | ✅ DONE — `faculty/approvals/page.tsx` |
-| 14 | `teacher/teacher_equipment.php` | Faculty equipment list (read-only) | No page (in borrow flow) |
-| 16 | `teacher/teacher_return_equipment.php` | Return equipment: stock restore | Handled in admin borrow-requests |
-| 17 | `teacher/teacher_requests.php` | Track request comments | No page exists |
-| 19 | `teacher/teacher_announcement.php` | Faculty announcement view | `admin/announcements/page.tsx` — placeholder |
-| 20 | `teacher/profile_teacher.php` | Faculty profile: photo, password change | No page exists |
+| `users.php` | Registration verification: approve/reject, bulk actions | ❌ Not needed (admin-managed user creation) |
+| `teacher/teacher_equipment.php` | Faculty equipment list (read-only) | ❌ Integrated into faculty borrow flow |
+| `teacher/teacher_requests.php` | Track request comments | ❌ Lower priority |
+| `teacher/teacher_return_equipment.php` | Faculty return equipment | ❌ Handled in admin borrow-requests |
+| `print_reports.php` | Monthly PDF report (Dompdf) | ❌ Can add later as API route |
 
 ---
 
