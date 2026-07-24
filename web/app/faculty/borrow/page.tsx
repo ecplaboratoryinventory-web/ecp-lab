@@ -31,6 +31,9 @@ interface Equipment {
   category_id: string;
   description: string;
   brand: string;
+  image_url: string | null;
+  department: string | null;
+  categories?: { name: string };
 }
 
 interface Category {
@@ -407,40 +410,99 @@ export default function BorrowPage() {
                 <p className="text-silver">No equipment available</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {equipment.map((eq) => (
-                  <button
-                    key={eq.id}
-                    onClick={() => toggleSelect(eq)}
-                    className={`ecp-card p-4 text-left transition-all hover:shadow-md ${
-                      isSelected(eq.id)
-                        ? "ring-2 ring-teal"
-                        : ""
-                    }`}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1 min-w-0">
-                        <h3 className="truncate text-sm font-semibold text-navy">
-                          {eq.name}
-                        </h3>
-                        {eq.brand && (
-                          <p className="mt-0.5 text-xs text-silver">{eq.brand}</p>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {equipment.map((eq) => {
+                  const catColors: Record<string, { from: string; to: string }> = {
+                    Microcontrollers: { from: "#1A2980", to: "#26D0CE" },
+                    "Single Board PCs": { from: "#0F2027", to: "#2C5364" },
+                    "Desktop PCs": { from: "#232526", to: "#414345" },
+                    Components: { from: "#4A00E0", to: "#8E2DE2" },
+                    Glassware: { from: "#00b4db", to: "#0083B0" },
+                    "Measuring Instruments": { from: "#667eea", to: "#764ba2" },
+                    "Chemicals and Reagents": { from: "#f093fb", to: "#f5576c" },
+                    "Safety Equipment": { from: "#4facfe", to: "#00f2fe" },
+                    Consumables: { from: "#43e97b", to: "#38f9d7" },
+                    "Electrical Equipment": { from: "#fa709a", to: "#fee140" },
+                    "Optical Equipment": { from: "#a18cd1", to: "#fbc2eb" },
+                    "Mechanics Equipment": { from: "#fccb90", to: "#d57eeb" },
+                  };
+                  const catName = eq.categories?.name || "";
+                  const colors = catColors[catName] || { from: "#1b2b40", to: "#0ea5a0" };
+                  const iconMap: Record<string, string> = {
+                    Microcontrollers: "🔌", "Single Board PCs": "🖥️", "Desktop PCs": "💻",
+                    Components: "⚡", Glassware: "🧪", "Measuring Instruments": "📏",
+                    "Chemicals and Reagents": "⚗️", "Safety Equipment": "🛡️",
+                    Consumables: "📄", "Electrical Equipment": "🔋", "Optical Equipment": "🔬",
+                    "Mechanics Equipment": "⚙️",
+                  };
+                  const icon = iconMap[catName] || "📦";
+                  const isSelected = selectedIds.has(eq.id);
+
+                  return (
+                    <button
+                      key={eq.id}
+                      onClick={() => toggleSelect(eq)}
+                      className={`group overflow-hidden rounded-2xl border bg-white text-left shadow-sm transition-all hover:shadow-lg ${
+                        isSelected ? "ring-2 ring-teal" : "border-[#dde4ec]"
+                      }`}
+                    >
+                      <div
+                        className="relative flex h-36 items-center justify-center"
+                        style={{ background: `radial-gradient(circle at 30% 20%, ${colors.from}, ${colors.to})` }}
+                      >
+                        {eq.image_url ? (
+                          <img src={eq.image_url} alt={eq.name} className="h-28 w-auto object-contain drop-shadow-lg" />
+                        ) : (
+                          <span className="text-5xl drop-shadow-lg">{icon}</span>
+                        )}
+                        {eq.department && (
+                          <span className="absolute left-3 top-3 rounded-full bg-white/20 px-2.5 py-0.5 text-[10px] font-bold uppercase text-white backdrop-blur-sm">
+                            {eq.department}
+                          </span>
+                        )}
+                        {isSelected && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/30 backdrop-blur-[2px]">
+                            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-teal shadow-lg">
+                              <Check className="h-6 w-6 text-white" />
+                            </span>
+                          </div>
                         )}
                       </div>
-                      {isSelected(eq.id) && (
-                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-teal">
-                          <Check className="h-3.5 w-3.5 text-white" />
-                        </span>
-                      )}
-                    </div>
-                    <div className="mt-3 flex items-center gap-2">
-                      {getStatusBadge(eq.status)}
-                      <span className="text-xs font-medium text-silver">
-                        {eq.available_quantity} available
-                      </span>
-                    </div>
-                  </button>
-                ))}
+
+                      <div className="p-4">
+                        <h3 className="truncate text-sm font-bold text-navy">{eq.name}</h3>
+                        <div className="mt-1.5 flex flex-wrap gap-1">
+                          <span className="rounded border border-[#dde4ec] px-1.5 py-0.5 text-[10px] font-bold uppercase text-silver">
+                            {catName || "Equipment"}
+                          </span>
+                          {eq.brand && (
+                            <span className="rounded border border-[#dde4ec] px-1.5 py-0.5 text-[10px] font-bold uppercase text-silver">
+                              {eq.brand}
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-2 text-xs leading-relaxed text-slate line-clamp-2">
+                          {eq.description || "Laboratory equipment for academic and research use."}
+                        </p>
+                        <div className="mt-3 flex items-center justify-between border-t border-[#f0f0f0] pt-3">
+                          <div>
+                            <span className="text-[10px] font-bold uppercase text-silver">Available</span>
+                            <p className="text-lg font-bold text-navy">{eq.available_quantity}</p>
+                          </div>
+                          <span
+                            className={`rounded-full px-3 py-1.5 text-[11px] font-bold transition-colors ${
+                              isSelected
+                                ? "bg-teal text-white"
+                                : "bg-[#f0f4f8] text-slate group-hover:bg-teal group-hover:text-white"
+                            }`}
+                          >
+                            {isSelected ? "Selected" : "Select"}
+                          </span>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             )}
 
