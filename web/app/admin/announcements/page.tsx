@@ -352,7 +352,7 @@ export default function AnnouncementsPage() {
       </div>
 
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-navy">
               {editingId ? "Edit Announcement" : "New Announcement"}

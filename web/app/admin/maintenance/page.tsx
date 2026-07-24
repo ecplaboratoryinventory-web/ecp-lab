@@ -586,7 +586,7 @@ export default function MaintenancePage() {
       )}
 
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-navy">
               {editingId ? "Edit Maintenance" : "Schedule Maintenance"}

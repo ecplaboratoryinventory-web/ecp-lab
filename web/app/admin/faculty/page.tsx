@@ -720,7 +720,7 @@ export default function FacultyPage() {
       </div>
 
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-xl sm:max-w-xl">
           <DialogHeader>
             <DialogTitle className="text-navy">{editingId ? "Edit Faculty" : "Add Faculty"}</DialogTitle>
           </DialogHeader>

@@ -360,7 +360,7 @@ export default function EquipmentPage() {
       </div>
 
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-xl sm:max-w-xl">
           <DialogHeader>
             <DialogTitle className="text-navy">{editingId ? "Edit Equipment" : "Add Equipment"}</DialogTitle>
           </DialogHeader>
@@ -376,7 +376,9 @@ export default function EquipmentPage() {
             <div>
               <label className="text-xs font-medium text-slate">Category</label>
               <Select value={form.category_id || undefined} onValueChange={(v) => setForm({ ...form, category_id: v || "" })}>
-                <SelectTrigger className="mt-1 border-[#dde4ec]"><SelectValue placeholder="Select..." /></SelectTrigger>
+                <SelectTrigger className="mt-1 border-[#dde4ec]">
+                  <span>{form.category_id ? categories.find((c) => c.id === form.category_id)?.name || "Unknown" : "Select category..."}</span>
+                </SelectTrigger>
                 <SelectContent>
                   {categories.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                 </SelectContent>

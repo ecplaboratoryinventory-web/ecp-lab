@@ -531,7 +531,7 @@ export default function StudentsPage() {
       </div>
 
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-xl sm:max-w-xl">
           <DialogHeader>
             <DialogTitle className="text-navy">{editingId ? "Edit Student" : "Add Student"}</DialogTitle>
           </DialogHeader>
