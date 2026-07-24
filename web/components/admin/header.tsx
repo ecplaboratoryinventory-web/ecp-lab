@@ -25,6 +25,7 @@ export function AdminHeader() {
   }, []);
 
   const handleLogout = async () => {
+    if (!confirm("Are you sure you want to logout?")) return;
     const supabase = createClient();
     await supabase.auth.signOut();
     router.push("/auth/login");

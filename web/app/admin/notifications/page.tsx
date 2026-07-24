@@ -127,6 +127,7 @@ export default function NotificationsPage() {
   };
 
   const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this notification?")) return;
     await supabase.from("notifications").delete().eq("id", id);
     fetchNotifications();
   };

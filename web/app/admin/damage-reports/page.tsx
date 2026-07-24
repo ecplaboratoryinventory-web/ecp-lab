@@ -151,6 +151,7 @@ export default function DamageReportsPage() {
   };
 
   const handleDismiss = async (id: string) => {
+    if (!confirm("Are you sure you want to dismiss this damage report?")) return;
     await supabase
       .from("damage_reports")
       .update({ status: "dismissed" })

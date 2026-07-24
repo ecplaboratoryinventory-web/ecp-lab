@@ -298,8 +298,9 @@ export default function FacultyPage() {
   };
 
   const handleToggleStatus = async (f: FacultyUser) => {
-    setActionLoading(f.id);
     const newStatus = f.status === "active" ? "inactive" : "active";
+    if (!confirm(`Are you sure you want to ${newStatus === "active" ? "activate" : "deactivate"} this faculty member?`)) return;
+    setActionLoading(f.id);
     await supabase.from("users").update({ status: newStatus }).eq("id", f.id);
     setActionLoading(null);
     fetchFaculty();

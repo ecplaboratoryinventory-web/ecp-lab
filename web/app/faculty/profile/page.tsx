@@ -281,6 +281,7 @@ export default function FacultyProfilePage() {
   };
 
   const handleLogout = async () => {
+    if (!confirm("Are you sure you want to logout?")) return;
     await supabase.auth.signOut();
     router.push("/auth/login");
   };

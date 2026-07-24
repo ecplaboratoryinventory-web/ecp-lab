@@ -228,6 +228,7 @@ export default function BorrowRequestsPage() {
   }, []);
 
   const handleApprove = async (id: string) => {
+    if (!confirm("Are you sure you want to approve this borrow request?")) return;
     const { data: { user } } = await supabase.auth.getUser();
     await supabase
       .from("borrow_requests")

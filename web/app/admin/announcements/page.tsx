@@ -156,6 +156,7 @@ export default function AnnouncementsPage() {
   };
 
   const handleToggleActive = async (a: Announcement) => {
+    if (!confirm(`Are you sure you want to ${a.is_active ? "deactivate" : "activate"} this announcement?`)) return;
     await supabase
       .from("announcements")
       .update({
