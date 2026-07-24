@@ -45,6 +45,7 @@ interface Student {
   section: string | null;
   status: string;
   approved: boolean;
+  created_at: string;
 }
 
 interface CsvRow {
@@ -218,21 +219,24 @@ export default function StudentsPage() {
   };
 
   const handleExportCSV = () => {
+    const today = new Date().toISOString().slice(0, 10);
     const rows = students.map((s) => [
       s.id_no || "",
-      `"${[s.firstname, s.lastname].filter(Boolean).join(" ")}"`,
-      s.course || "",
+      s.firstname || "",
+      s.lastname || "",
+      s.middlename || "",
       s.section || "",
-      s.email || "",
+      s.course || "",
       s.status,
+      s.created_at ? new Date(s.created_at).toISOString().slice(0, 10) : "",
     ]);
-    const header = "Student #,Full Name,Course,Section,Email,Status";
+    const header = "student_number,firstname,lastname,middlename,section,course,status,created_at";
     const csv = [header, ...rows.map((r) => r.join(","))].join("\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "students.csv";
+    a.download = `students_export_${today}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };

@@ -260,16 +260,18 @@ export default function FacultyPage() {
   };
 
   const handleDownloadTemplate = () => {
-    const csv = "firstname,lastname,middlename,email,id_no,department\nJohn,Doe,Middle,john.doe@ecp.edu.ph,F12345,Engineering\nJane,Smith,Ann,jane.smith@ecp.edu.ph,F67890,Science";
+    const csv = "First Name*,Last Name*,Middle Name,Email*,Username*,ID Number*,Role\nJohn,Doe,Middle,john.doe@ecp.edu.ph,john.doe,F12345,Faculty\nJane,Smith,Ann,jane.smith@ecp.edu.ph,jane.smith,F67890,Faculty";
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     a.download = "faculty_template.csv";
     a.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleExportCSV = () => {
+    const today = new Date().toISOString().slice(0, 10);
     const rows = faculty.map((f) => [
       f.firstname || "",
       f.lastname || "",
@@ -279,13 +281,14 @@ export default function FacultyPage() {
       f.department || "",
       f.status || "",
     ]);
-    const csv = ["firstname,lastname,middlename,email,id_no,department,status", ...rows.map((r) => r.join(","))].join("\n");
+    const csv = ["First Name,Last Name,Middle Name,Email,ID Number,Department,Status", ...rows.map((r) => r.join(","))].join("\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "faculty.csv";
+    a.download = `faculty_export_${today}.csv`;
     a.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleCsvFile = (e: React.ChangeEvent<HTMLInputElement>) => {

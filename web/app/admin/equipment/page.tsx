@@ -142,16 +142,26 @@ export default function EquipmentPage() {
   };
 
   const handleExportCSV = () => {
+    const today = new Date().toISOString().slice(0, 10);
     const rows = equipment.map((e) => [
-      e.id, e.serial_number, e.name, e.categories?.name || "", e.quantity, e.available_quantity, e.status,
+      e.id,
+      e.serial_number,
+      e.name,
+      e.categories?.name || "",
+      e.quantity,
+      e.available_quantity,
+      e.status,
+      e.description || "",
     ]);
-    const csv = ["ID,Code,Name,Category,Quantity,Available,Status", ...rows.map((r) => r.join(","))].join("\n");
+    const header = "ID,Code,Name,Category,Quantity,Available,Status,Description";
+    const csv = [header, ...rows.map((r) => r.join(","))].join("\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "equipment.csv";
+    a.download = `equipment_export_${today}.csv`;
     a.click();
+    URL.revokeObjectURL(url);
   };
 
   const statuses = [
