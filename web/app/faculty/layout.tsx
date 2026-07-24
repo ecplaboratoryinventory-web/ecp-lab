@@ -60,24 +60,13 @@ export default function FacultyLayout({ children }: { children: React.ReactNode 
       <aside className="fixed left-0 top-0 z-30 flex h-screen w-[268px] flex-col shadow-lg" style={{ background: "#1b2b40" }}>
         {/* Branding */}
         <div className="shrink-0 border-b border-white/[0.07] px-5 py-[18px]">
-          <div className="mb-[18px] flex items-center gap-2.5">
+          <div className="flex items-center gap-2.5">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#0ea5a0]">
               <FlaskConical className="h-5 w-5 text-white" />
             </div>
             <div style={{ lineHeight: 1.2 }}>
               <strong className="block text-[23px] font-bold tracking-tight text-white">ECP Lab</strong>
               <span className="text-[0.67rem] text-white/50">Faculty Portal</span>
-            </div>
-          </div>
-
-          {/* User info */}
-          <div className="flex items-center gap-3 rounded-lg bg-white/[0.06] p-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#0ea5a0] text-sm font-bold text-white">
-              {userName.charAt(0).toUpperCase()}
-            </div>
-            <div className="min-w-0 flex-1" style={{ lineHeight: 1.3 }}>
-              <div className="truncate text-[0.82rem] font-semibold text-white">{userName}</div>
-              <div className="text-[0.67rem] text-white/50">{userDept || "Faculty"}</div>
             </div>
           </div>
         </div>
@@ -135,6 +124,19 @@ export default function FacultyLayout({ children }: { children: React.ReactNode 
             </button>
           </div>
         </nav>
+
+        {/* User info at bottom */}
+        <div className="shrink-0 border-t border-white/[0.07] bg-black/20 p-4">
+          <div className="flex items-center gap-3 rounded-lg bg-white/[0.08] p-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#0ea5a0] text-sm font-bold text-white">
+              {userName.charAt(0).toUpperCase()}
+            </div>
+            <div className="min-w-0 flex-1" style={{ lineHeight: 1.3 }}>
+              <div className="truncate text-[0.82rem] font-semibold text-white">{userName}</div>
+              <div className="text-[0.67rem] text-white/50">{userDept || "Faculty"}</div>
+            </div>
+          </div>
+        </div>
 
         {/* Footer */}
         <div className="shrink-0 px-4 py-3 text-center text-[0.65rem] text-white/20">

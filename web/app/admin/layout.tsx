@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 import {
   LayoutDashboard,
   Microscope,
@@ -31,6 +33,19 @@ const navigation = [
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const supabase = createClient();
+  const [userName, setUserName] = useState("Admin");
+
+  useEffect(() => {
+    const fetch = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data } = await supabase.from("users").select("full_name").eq("id", user.id).single();
+        if (data?.full_name) setUserName(data.full_name);
+      }
+    };
+    fetch();
+  }, []);
 
   return (
     <div className="flex min-h-screen">
@@ -67,11 +82,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <div className="rounded-lg bg-white/10 p-3">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-teal text-sm font-bold">
-                A
+                {userName.charAt(0).toUpperCase()}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-white">Administrator</p>
-                <p className="text-[0.7rem] text-white/70">admin</p>
+                <p className="truncate text-sm font-semibold text-white">{userName}</p>
+                <p className="text-[0.7rem] text-white/70">Administrator</p>
               </div>
             </div>
           </div>
