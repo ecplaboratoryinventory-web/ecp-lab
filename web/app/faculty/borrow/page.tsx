@@ -309,7 +309,7 @@ export default function BorrowPage() {
 
   return (
     <Toaster>
-      <div>
+      <div className="mx-auto max-w-7xl">
         <div className="mb-6 rounded-xl border border-[#dde4ec] bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
