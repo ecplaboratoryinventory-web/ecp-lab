@@ -18,51 +18,66 @@ export default function FacultyDashboardPage() {
 
   const CAT_COLORS = ["#378ADD", "#1D9E75", "#7F77DD", "#BA7517", "#D85A30", "#888780"];
 
+  const fetchAll = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data: profile } = await supabase.from("users").select("full_name, department").eq("id", user.id).single();
+    const name = profile?.full_name || "Faculty";
+    const dept = profile?.department;
+    setUserName(name.split(" ")[0]);
+    setUserDept(dept || "");
+
+    const eq = dept ? (q: any) => q.eq("department", dept) : (q: any) => q;
+
+    const [{ count: total }, { count: available }] = await Promise.all([
+      eq(supabase.from("equipment").select("*", { count: "exact", head: true })),
+      eq(supabase.from("equipment").select("*", { count: "exact", head: true }).eq("status", "available")),
+    ]);
+
+    const { data: borrows } = await supabase.from("borrow_requests").select("*, borrow_items(equipment_id, quantity, equipment:equipment_id(name))").eq("user_id", user.id).order("created_at", { ascending: false });
+    const active = borrows?.filter((b: any) => b.status === "borrowed" || b.status === "approved").length || 0;
+    const overdue = borrows?.filter((b: any) => b.status === "borrowed" && new Date(b.borrow_date).getTime() + 3 * 60 * 60 * 1000 < Date.now()).length || 0;
+    const faculty = borrows?.filter((b: any) => b.request_type === "faculty").length || 0;
+
+    setStats({ total: total || 0, available: available || 0, active, faculty, overdue });
+    setRecentBorrows(borrows?.slice(0, 5) || []);
+
+    const { data: cats } = await supabase.from("categories").select("id, name");
+    if (cats) {
+      const catData = await Promise.all(cats.map(async (c: any) => {
+        const { count } = await eq(supabase.from("equipment").select("*", { count: "exact", head: true })).eq("category_id", c.id);
+        return { name: c.name, count: count || 0 };
+      }));
+      const filtered = catData.filter((c: any) => c.count > 0).sort((a: any, b: any) => b.count - a.count).slice(0, 6);
+      setCategories(filtered);
+      setMaxCat(Math.max(...filtered.map((c: any) => c.count), 1));
+    }
+
+    const { data: notifs } = await supabase.from("notifications").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(4);
+    setNotifications(notifs || []);
+
+    setLoading(false);
+  };
+
   useEffect(() => {
-    const fetchAll = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data: profile } = await supabase.from("users").select("full_name, department").eq("id", user.id).single();
-      const name = profile?.full_name || "Faculty";
-      const dept = profile?.department;
-      setUserName(name.split(" ")[0]);
-      setUserDept(dept || "");
-
-      const eq = dept ? (q: any) => q.eq("department", dept) : (q: any) => q;
-
-      const [{ count: total }, { count: available }] = await Promise.all([
-        eq(supabase.from("equipment").select("*", { count: "exact", head: true })),
-        eq(supabase.from("equipment").select("*", { count: "exact", head: true }).eq("status", "available")),
-      ]);
-
-      const { data: borrows } = await supabase.from("borrow_requests").select("*, borrow_items(equipment_id, quantity, equipment:equipment_id(name))").eq("user_id", user.id).order("created_at", { ascending: false });
-      const active = borrows?.filter((b: any) => b.status === "borrowed" || b.status === "approved").length || 0;
-      const overdue = borrows?.filter((b: any) => b.status === "borrowed" && new Date(b.borrow_date).getTime() + 3 * 60 * 60 * 1000 < Date.now()).length || 0;
-      const faculty = borrows?.filter((b: any) => b.request_type === "faculty").length || 0;
-
-      setStats({ total: total || 0, available: available || 0, active, faculty, overdue });
-      setRecentBorrows(borrows?.slice(0, 5) || []);
-
-      // Categories
-      const { data: cats } = await supabase.from("categories").select("id, name");
-      if (cats) {
-        const catData = await Promise.all(cats.map(async (c: any) => {
-          const { count } = await eq(supabase.from("equipment").select("*", { count: "exact", head: true })).eq("category_id", c.id);
-          return { name: c.name, count: count || 0 };
-        }));
-        const filtered = catData.filter((c: any) => c.count > 0).sort((a: any, b: any) => b.count - a.count).slice(0, 6);
-        setCategories(filtered);
-        setMaxCat(Math.max(...filtered.map((c: any) => c.count), 1));
-      }
-
-      // Notifications
-      const { data: notifs } = await supabase.from("notifications").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(4);
-      setNotifications(notifs || []);
-
-      setLoading(false);
-    };
     fetchAll();
+  }, []);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('faculty-dashboard-equipment')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'equipment' }, () => fetchAll())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('faculty-dashboard-borrow-requests')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'borrow_requests' }, () => fetchAll())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   if (loading) {

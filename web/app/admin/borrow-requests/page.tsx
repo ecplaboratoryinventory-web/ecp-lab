@@ -219,6 +219,14 @@ export default function BorrowRequestsPage() {
     fetchData();
   }, [fetchData]);
 
+  useEffect(() => {
+    const channel = supabase
+      .channel('admin-borrow-requests')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'borrow_requests' }, () => fetchData())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
   const handleApprove = async (id: string) => {
     const { data: { user } } = await supabase.auth.getUser();
     await supabase

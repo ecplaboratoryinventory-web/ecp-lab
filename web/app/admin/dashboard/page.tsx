@@ -17,38 +17,55 @@ export default function AdminDashboardPage() {
 
   const COLORS = ["#0ea5a0", "#3b82f6", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6", "#ec4899", "#14b8a6"];
 
+  const fetchAll = async () => {
+    const { count: total } = await supabase.from("equipment").select("*", { count: "exact", head: true });
+    const { count: available } = await supabase.from("equipment").select("*", { count: "exact", head: true }).eq("status", "available");
+    const { count: borrowed } = await supabase.from("equipment").select("*", { count: "exact", head: true }).eq("status", "borrowed");
+    const { count: maintenance } = await supabase.from("equipment").select("*", { count: "exact", head: true }).eq("status", "under_maintenance");
+    setStats({ total: total || 0, available: available || 0, borrowed: borrowed || 0, maintenance: maintenance || 0 });
+
+    const { data: cats } = await supabase.from("categories").select("id, name");
+    if (cats) {
+      const cd = await Promise.all(cats.map(async (c: any) => {
+        const { count } = await supabase.from("equipment").select("*", { count: "exact", head: true }).eq("category_id", c.id);
+        return { name: c.name, count: count || 0 };
+      }));
+      setCategoryChart(cd.filter((c: any) => c.count > 0));
+    }
+
+    setStatusChart([
+      { name: "Available", value: available || 0 },
+      { name: "In Use", value: borrowed || 0 },
+      { name: "Maintenance", value: maintenance || 0 },
+    ]);
+
+    const { data: borrows } = await supabase.from("borrow_requests").select("*, users!borrow_requests_user_id_fkey(full_name)").order("created_at", { ascending: false }).limit(5);
+    setRecentBorrows(borrows || []);
+
+    const { data: logs } = await supabase.from("activity_logs").select("*, users(full_name)").order("created_at", { ascending: false }).limit(8);
+    setRecentActivity(logs || []);
+
+    setLoading(false);
+  };
+
   useEffect(() => {
-    const fetchAll = async () => {
-      const { count: total } = await supabase.from("equipment").select("*", { count: "exact", head: true });
-      const { count: available } = await supabase.from("equipment").select("*", { count: "exact", head: true }).eq("status", "available");
-      const { count: borrowed } = await supabase.from("equipment").select("*", { count: "exact", head: true }).eq("status", "borrowed");
-      const { count: maintenance } = await supabase.from("equipment").select("*", { count: "exact", head: true }).eq("status", "under_maintenance");
-      setStats({ total: total || 0, available: available || 0, borrowed: borrowed || 0, maintenance: maintenance || 0 });
-
-      const { data: cats } = await supabase.from("categories").select("id, name");
-      if (cats) {
-        const cd = await Promise.all(cats.map(async (c: any) => {
-          const { count } = await supabase.from("equipment").select("*", { count: "exact", head: true }).eq("category_id", c.id);
-          return { name: c.name, count: count || 0 };
-        }));
-        setCategoryChart(cd.filter((c: any) => c.count > 0));
-      }
-
-      setStatusChart([
-        { name: "Available", value: available || 0 },
-        { name: "In Use", value: borrowed || 0 },
-        { name: "Maintenance", value: maintenance || 0 },
-      ]);
-
-      const { data: borrows } = await supabase.from("borrow_requests").select("*, users!borrow_requests_user_id_fkey(full_name)").order("created_at", { ascending: false }).limit(5);
-      setRecentBorrows(borrows || []);
-
-      const { data: logs } = await supabase.from("activity_logs").select("*, users(full_name)").order("created_at", { ascending: false }).limit(8);
-      setRecentActivity(logs || []);
-
-      setLoading(false);
-    };
     fetchAll();
+  }, []);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('admin-dashboard-equipment')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'equipment' }, () => fetchAll())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('admin-dashboard-borrow-requests')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'borrow_requests' }, () => fetchAll())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   return (

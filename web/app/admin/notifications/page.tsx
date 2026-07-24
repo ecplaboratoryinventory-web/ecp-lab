@@ -99,6 +99,14 @@ export default function NotificationsPage() {
     fetchNotifications();
   }, [fetchNotifications]);
 
+  useEffect(() => {
+    const channel = supabase
+      .channel('admin-notifications')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => fetchNotifications())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
   const handleMarkAsRead = async (id: string) => {
     await supabase.from("notifications").update({ is_read: true }).eq("id", id);
     fetchNotifications();

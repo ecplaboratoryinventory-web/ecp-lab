@@ -161,6 +161,14 @@ export default function ApprovalsPage() {
     fetchStats();
   }, [fetchStats]);
 
+  useEffect(() => {
+    const channel = supabase
+      .channel('faculty-approvals-borrow-requests')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'borrow_requests' }, () => fetchData())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
   const reload = () => {
     fetchData();
     fetchStats();

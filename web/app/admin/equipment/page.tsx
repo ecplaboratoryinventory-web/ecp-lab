@@ -110,6 +110,14 @@ export default function EquipmentPage() {
     fetchData();
   }, [statusFilter, categoryFilter, debouncedSearch]);
 
+  useEffect(() => {
+    const channel = supabase
+      .channel('admin-equipment')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'equipment' }, () => fetchData())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
   const openCreate = () => {
     setEditingId(null);
     setForm({ name: "", serial_number: "", category_id: "", quantity: 1, description: "", brand: "", model: "", location: "", condition: "good", purchase_date: "", status: "available", subject_tags: [] });
