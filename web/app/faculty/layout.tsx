@@ -14,6 +14,7 @@ export default function FacultyLayout({ children }: { children: React.ReactNode 
   const links = [
     { title: "Dashboard", href: "/faculty/dashboard" },
     { title: "Borrow", href: "/faculty/borrow" },
+    { title: "Equipment", href: "/faculty/equipment" },
     { title: "Approvals", href: "/faculty/approvals" },
     { title: "Schedule", href: "/faculty/schedule" },
     { title: "History", href: "/faculty/history" },
