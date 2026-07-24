@@ -87,9 +87,6 @@ export default function LandingPage() {
 
         {/* Hero Content */}
         <div className="relative z-10 mx-auto max-w-3xl px-4">
-          <div className="mb-6 inline-flex h-[100px] w-[100px] items-center justify-center rounded-full border-2 border-white/20 bg-white/5">
-            <Image src="/images/logo-main.png" alt="ECP Logo" width={60} height={60} className="h-[60px] w-auto rounded-full" />
-          </div>
           <h1 className="mb-2 text-[2.6rem] font-black leading-tight tracking-tight text-white">
             ECP Inventory Lab
           </h1>
