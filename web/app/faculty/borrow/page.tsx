@@ -412,22 +412,7 @@ export default function BorrowPage() {
             ) : (
               <div className="mx-auto grid max-w-6xl grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                 {equipment.map((eq) => {
-                  const catColors: Record<string, { from: string; to: string }> = {
-                    Microcontrollers: { from: "#1A2980", to: "#26D0CE" },
-                    "Single Board PCs": { from: "#0F2027", to: "#2C5364" },
-                    "Desktop PCs": { from: "#232526", to: "#414345" },
-                    Components: { from: "#4A00E0", to: "#8E2DE2" },
-                    Glassware: { from: "#00b4db", to: "#0083B0" },
-                    "Measuring Instruments": { from: "#667eea", to: "#764ba2" },
-                    "Chemicals and Reagents": { from: "#f093fb", to: "#f5576c" },
-                    "Safety Equipment": { from: "#4facfe", to: "#00f2fe" },
-                    Consumables: { from: "#43e97b", to: "#38f9d7" },
-                    "Electrical Equipment": { from: "#fa709a", to: "#fee140" },
-                    "Optical Equipment": { from: "#a18cd1", to: "#fbc2eb" },
-                    "Mechanics Equipment": { from: "#fccb90", to: "#d57eeb" },
-                  };
                   const catName = eq.categories?.name || "";
-                  const colors = catColors[catName] || { from: "#1b2b40", to: "#0ea5a0" };
                   const iconMap: Record<string, string> = {
                     Microcontrollers: "🔌", "Single Board PCs": "🖥️", "Desktop PCs": "💻",
                     Components: "⚡", Glassware: "🧪", "Measuring Instruments": "📏",
@@ -442,23 +427,15 @@ export default function BorrowPage() {
                     <button
                       key={eq.id}
                       onClick={() => toggleSelect(eq)}
-                      className={`group mx-auto w-full max-w-[200px] rounded-2xl border bg-white text-left shadow-sm transition-all hover:shadow-lg ${
+                      className={`group mx-auto w-full max-w-[200px] overflow-hidden rounded-2xl border bg-white text-left shadow-sm transition-all hover:shadow-lg ${
                         isSelected ? "ring-2 ring-teal" : "border-[#dde4ec]"
                       }`}
                     >
-                      <div
-                        className="relative flex aspect-square items-center justify-center overflow-hidden rounded-t-2xl"
-                        style={{ background: `radial-gradient(circle at 30% 20%, ${colors.from}, ${colors.to})` }}
-                      >
+                      <div className="relative flex h-48 items-center justify-center bg-gradient-to-br from-[#7C74A4] to-[#4B436D] p-4">
                         {eq.image_url ? (
-                          <img src={eq.image_url} alt={eq.name} className="absolute -bottom-6 h-40 w-auto -rotate-6 object-contain drop-shadow-[0_8px_16px_rgba(0,0,0,0.3)]" />
+                          <img src={eq.image_url} alt={eq.name} className="max-h-[85%] max-w-[85%] object-contain drop-shadow-lg" />
                         ) : (
                           <span className="text-5xl drop-shadow-lg">{icon}</span>
-                        )}
-                        {eq.department && (
-                          <span className="absolute left-3 top-3 rounded-full bg-white/20 px-2.5 py-0.5 text-[10px] font-bold uppercase text-white backdrop-blur-sm">
-                            {eq.department}
-                          </span>
                         )}
                         {isSelected && (
                           <div className="absolute inset-0 flex items-center justify-center bg-black/30 backdrop-blur-[2px]">
@@ -469,31 +446,32 @@ export default function BorrowPage() {
                         )}
                       </div>
 
-                      <div className="rounded-b-2xl p-4">
+                      <div className="space-y-3 p-4">
                         <h3 className="truncate text-sm font-bold text-navy">{eq.name}</h3>
-                        <div className="mt-1.5 flex flex-wrap gap-1">
-                          <span className="rounded border border-[#dde4ec] px-1.5 py-0.5 text-[10px] font-bold uppercase text-silver">
+                        <div className="flex gap-1.5">
+                          <span className="rounded border border-[#E2E8F0] px-2 py-0.5 text-[10px] font-semibold uppercase text-slate">
                             {catName || "Equipment"}
                           </span>
                           {eq.brand && (
-                            <span className="rounded border border-[#dde4ec] px-1.5 py-0.5 text-[10px] font-bold uppercase text-silver">
+                            <span className="rounded border border-[#E2E8F0] px-2 py-0.5 text-[10px] font-semibold uppercase text-slate">
                               {eq.brand}
                             </span>
                           )}
                         </div>
-                        <p className="mt-2 text-xs leading-relaxed text-slate line-clamp-2">
+                        <p className="text-xs leading-relaxed text-slate line-clamp-2">
                           {eq.description || "Laboratory equipment for academic and research use."}
                         </p>
-                        <div className="mt-3 flex items-center justify-between border-t border-[#f0f0f0] pt-3">
+                        <hr className="border-[#f0f0f0]" />
+                        <div className="flex items-center justify-between">
                           <div>
-                            <span className="text-[10px] font-bold uppercase text-silver">Available</span>
-                            <p className="text-lg font-bold text-navy">{eq.available_quantity}</p>
+                            <span className="block text-[10px] font-bold uppercase text-silver">Available</span>
+                            <span className="text-lg font-bold text-navy">{eq.available_quantity} units</span>
                           </div>
                           <span
-                            className={`rounded-full px-3 py-1.5 text-[11px] font-bold transition-colors ${
+                            className={`rounded-xl px-4 py-2 text-[11px] font-semibold transition-colors ${
                               isSelected
-                                ? "bg-teal text-white"
-                                : "bg-[#f0f4f8] text-slate group-hover:bg-teal group-hover:text-white"
+                                ? "bg-[#5D5488] text-white"
+                                : "bg-[#f0f4f8] text-slate group-hover:bg-[#5D5488] group-hover:text-white"
                             }`}
                           >
                             {isSelected ? "Selected" : "Select"}
