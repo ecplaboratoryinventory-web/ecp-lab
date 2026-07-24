@@ -34,6 +34,7 @@ interface Equipment {
   location: string;
   condition: string;
   purchase_date: string;
+  subject_tags: string[] | null;
   categories?: { name: string };
 }
 
@@ -49,6 +50,7 @@ export default function EquipmentPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [modalOpen, setModalOpen] = useState(false);
@@ -67,6 +69,7 @@ export default function EquipmentPage() {
     condition: "good",
     purchase_date: "",
     status: "available",
+    subject_tags: [] as string[],
   });
 
   const fetchData = async () => {
@@ -74,7 +77,7 @@ export default function EquipmentPage() {
 
     if (statusFilter !== "all") query = query.eq("status", statusFilter);
     if (categoryFilter !== "all") query = query.eq("category_id", categoryFilter);
-    if (search) query = query.or(`name.ilike.%${search}%,serial_number.ilike.%${search}%`);
+    if (debouncedSearch) query = query.or(`name.ilike.%${debouncedSearch}%,serial_number.ilike.%${debouncedSearch}%`);
 
     const { data } = await query.order("name");
     if (data) setEquipment(data);
@@ -98,12 +101,17 @@ export default function EquipmentPage() {
   }, []);
 
   useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => {
     fetchData();
-  }, [statusFilter, categoryFilter, search]);
+  }, [statusFilter, categoryFilter, debouncedSearch]);
 
   const openCreate = () => {
     setEditingId(null);
-    setForm({ name: "", serial_number: "", category_id: "", quantity: 1, description: "", brand: "", model: "", location: "", condition: "good", purchase_date: "", status: "available" });
+    setForm({ name: "", serial_number: "", category_id: "", quantity: 1, description: "", brand: "", model: "", location: "", condition: "good", purchase_date: "", status: "available", subject_tags: [] });
     setModalOpen(true);
   };
 
@@ -121,6 +129,7 @@ export default function EquipmentPage() {
       condition: eq.condition || "good",
       purchase_date: eq.purchase_date || "",
       status: eq.status,
+      subject_tags: eq.subject_tags || [],
     });
     setModalOpen(true);
   };
@@ -385,6 +394,7 @@ export default function EquipmentPage() {
                   <SelectItem value="good">Good</SelectItem>
                   <SelectItem value="fair">Fair</SelectItem>
                   <SelectItem value="poor">Poor</SelectItem>
+                  <SelectItem value="needs_replacement">Needs Replacement</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -395,6 +405,23 @@ export default function EquipmentPage() {
             <div className="col-span-2">
               <label className="text-xs font-medium text-slate">Description</label>
               <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="mt-1 border-[#dde4ec]" />
+            </div>
+            <div className="col-span-2">
+              <label className="text-xs font-medium text-slate">Subject Tags (comma-separated)</label>
+              <Input
+                value={form.subject_tags.join(", ")}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    subject_tags: e.target.value
+                      .split(",")
+                      .map((s) => s.trim())
+                      .filter(Boolean),
+                  })
+                }
+                className="mt-1 border-[#dde4ec]"
+                placeholder="e.g., BSCpE, STEM, Chemistry, Physics"
+              />
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">

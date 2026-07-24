@@ -56,6 +56,7 @@ interface CsvRow {
   email: string;
   course: string;
   section: string;
+  enrolled_subjects: string;
 }
 
 const COURSES = [
@@ -259,7 +260,7 @@ export default function StudentsPage() {
       const headers = lines[0].split(",").map((h) => h.trim().toLowerCase().replace(/["\r]/g, ""));
       setCsvHeaders(lines[0].split(",").map((h) => h.trim().replace(/["\r]/g, "")));
 
-      const validColumns = ["firstname", "lastname", "middlename", "id_no", "email", "course", "section"];
+      const validColumns = ["firstname", "lastname", "middlename", "id_no", "email", "course", "section", "enrolled_subjects"];
       const missing = validColumns.filter((c) => !headers.includes(c));
       if (missing.length > 0) {
         setCsvError(`Missing required columns: ${missing.join(", ")}`);
@@ -281,6 +282,7 @@ export default function StudentsPage() {
           email: row.email || "",
           course: row.course || "",
           section: row.section || "",
+          enrolled_subjects: row.enrolled_subjects || "",
         });
       }
       setCsvPreview(rows);
@@ -301,6 +303,9 @@ export default function StudentsPage() {
         email: r.email,
         course: r.course || null,
         section: r.section || null,
+        enrolled_subjects: r.enrolled_subjects
+          ? r.enrolled_subjects.split(",").map((s) => s.trim()).filter(Boolean)
+          : null,
         role: "student",
         approved: true,
         status: "active",
@@ -627,7 +632,7 @@ export default function StudentsPage() {
           <DialogHeader>
             <DialogTitle className="text-navy">Import Students from CSV</DialogTitle>
             <DialogDescription className="text-silver">
-              Upload a CSV file with columns: firstname, lastname, middlename, id_no, email, course, section
+              Upload a CSV file with columns: firstname, lastname, middlename, id_no, email, course, section, enrolled_subjects
             </DialogDescription>
           </DialogHeader>
 
@@ -674,6 +679,7 @@ export default function StudentsPage() {
                             <td className="px-3 py-2">{row.email}</td>
                             <td className="px-3 py-2">{row.course || "-"}</td>
                             <td className="px-3 py-2">{row.section || "-"}</td>
+                            <td className="px-3 py-2">{row.enrolled_subjects || "-"}</td>
                           </tr>
                         ))}
                       </tbody>
