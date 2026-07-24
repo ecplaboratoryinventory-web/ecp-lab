@@ -2,84 +2,62 @@ import Link from "next/link";
 
 export default function LandingPage() {
   return (
-    <div className="flex min-h-screen flex-col bg-white">
-      <header className="border-b border-zinc-200">
+    <div className="flex min-h-screen flex-col bg-[#f2f5f9]">
+      <header className="border-b border-[#dde4ec] bg-white">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <span className="text-xl font-bold text-zinc-900">ECP Lab</span>
-          <nav className="flex items-center gap-4">
-            <Link
-              href="/auth/login"
-              className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
-            >
-              Sign In
-            </Link>
-          </nav>
+          <span className="text-xl font-bold tracking-wide text-navy">ECP Inventory Lab</span>
+          <Link
+            href="/auth/login"
+            className="rounded-lg bg-teal px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-teal-dark"
+          >
+            Sign In
+          </Link>
         </div>
       </header>
 
       <main className="flex flex-1 flex-col items-center justify-center px-6">
-        <div className="max-w-2xl text-center">
-          <h1 className="text-5xl font-bold tracking-tight text-zinc-900">
-            ECP Laboratory Inventory
+        <div className="max-w-3xl text-center">
+          <h1 className="text-[2.75rem] font-extrabold leading-tight tracking-tight text-navy">
+            Laboratory Inventory
+            <br />
+            Management System
           </h1>
-          <p className="mt-4 text-lg text-zinc-600">
+          <p className="mt-5 text-lg leading-relaxed text-silver">
             Engineering Laboratory Inventory Management System for STI College
             Cotabato. Track equipment, manage borrow requests, and streamline
             laboratory operations.
           </p>
-          <div className="mt-8 flex items-center justify-center gap-4">
+          <div className="mt-10 flex items-center justify-center gap-4">
             <Link
               href="/auth/login"
-              className="rounded-lg bg-zinc-900 px-6 py-3 text-sm font-medium text-white hover:bg-zinc-800"
+              className="rounded-lg bg-navy px-7 py-3 text-sm font-semibold text-white shadow-md transition-all hover:bg-navy-light hover:shadow-lg"
             >
               Get Started
             </Link>
-            <Link
+            <a
               href="#features"
-              className="rounded-lg border border-zinc-300 px-6 py-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+              className="rounded-lg border-2 border-[#dde4ec] bg-white px-7 py-3 text-sm font-semibold text-slate transition-all hover:border-teal hover:text-teal"
             >
               Learn More
-            </Link>
+            </a>
           </div>
         </div>
 
-        <div
-          id="features"
-          className="mt-24 grid max-w-5xl grid-cols-1 gap-8 sm:grid-cols-3"
-        >
+        <div id="features" className="mt-20 grid max-w-5xl grid-cols-1 gap-6 sm:grid-cols-3">
           {[
-            {
-              title: "Equipment Management",
-              description:
-                "Track and manage laboratory equipment inventory with detailed records and status tracking.",
-            },
-            {
-              title: "Borrow Requests",
-              description:
-                "Streamlined borrow and return process for students and faculty with real-time approval workflows.",
-            },
-            {
-              title: "Reports & Analytics",
-              description:
-                "Generate reports on equipment usage, maintenance schedules, and laboratory activity logs.",
-            },
-          ].map((feature) => (
-            <div
-              key={feature.title}
-              className="rounded-xl border border-zinc-200 p-6"
-            >
-              <h3 className="text-lg font-semibold text-zinc-900">
-                {feature.title}
-              </h3>
-              <p className="mt-2 text-sm text-zinc-600">
-                {feature.description}
-              </p>
+            { title: "Equipment Management", desc: "Track and manage laboratory equipment inventory with detailed records and status tracking." },
+            { title: "Borrow Requests", desc: "Streamlined borrow and return process for students and faculty with real-time approval workflows." },
+            { title: "Reports & Analytics", desc: "Generate reports on equipment usage, maintenance schedules, and laboratory activity logs." },
+          ].map((f) => (
+            <div key={f.title} className="rounded-xl border border-[#dde4ec] bg-white p-6 shadow-sm transition-shadow hover:shadow-md">
+              <h3 className="text-lg font-bold text-navy">{f.title}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-slate">{f.desc}</p>
             </div>
           ))}
         </div>
       </main>
 
-      <footer className="border-t border-zinc-200 py-6 text-center text-sm text-zinc-500">
+      <footer className="mt-16 border-t border-[#dde4ec] py-5 text-center text-xs text-silver">
         STI College Cotabato — Engineering Laboratory
       </footer>
     </div>
