@@ -1,0 +1,20 @@
+{
+  "name": "ecp-lab",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ECP Laboratory Inventory Management System",
+  "workspaces": [
+    "web",
+    "mobile",
+    "scripts"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev -w web",
+    "dev:mobile": "npm run start -w mobile",
+    "build:web": "npm run build -w web",
+    "build:mobile": "npm run build -w mobile",
+    "lint": "npm run lint -w web",
+    "migrate": "node scripts/migrate-data.mjs",
+    "seed": "node scripts/seed-demo.mjs"
+  }
+}
