@@ -410,7 +410,7 @@ export default function BorrowPage() {
                 <p className="text-silver">No equipment available</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                 {equipment.map((eq) => {
                   const catColors: Record<string, { from: string; to: string }> = {
                     Microcontrollers: { from: "#1A2980", to: "#26D0CE" },
@@ -442,12 +442,12 @@ export default function BorrowPage() {
                     <button
                       key={eq.id}
                       onClick={() => toggleSelect(eq)}
-                      className={`group overflow-hidden rounded-2xl border bg-white text-left shadow-sm transition-all hover:shadow-lg ${
+                      className={`group mx-auto w-full max-w-[200px] overflow-hidden rounded-2xl border bg-white text-left shadow-sm transition-all hover:shadow-lg ${
                         isSelected ? "ring-2 ring-teal" : "border-[#dde4ec]"
                       }`}
                     >
                       <div
-                        className="relative flex h-36 items-center justify-center"
+                        className="relative flex aspect-square items-center justify-center"
                         style={{ background: `radial-gradient(circle at 30% 20%, ${colors.from}, ${colors.to})` }}
                       >
                         {eq.image_url ? (
