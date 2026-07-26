@@ -15,6 +15,7 @@ import {
   Wrench,
   Megaphone,
   Settings,
+  CalendarClock,
 } from "lucide-react";
 import { AdminHeader } from "@/components/admin/header";
 
@@ -25,6 +26,7 @@ const navigation = [
   { title: "Borrowings", href: "/admin/borrow-requests", icon: HandHelping },
   { title: "Students", href: "/admin/students", icon: GraduationCap },
   { title: "Faculty", href: "/admin/faculty", icon: Users },
+  { title: "Class Schedules", href: "/admin/class-schedules", icon: CalendarClock },
   { title: "Logs & Reports", href: "/admin/activity-logs", icon: ScrollText },
   { title: "Maintenance", href: "/admin/maintenance", icon: Wrench },
   { title: "Announcements", href: "/admin/announcements", icon: Megaphone },

@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "@/components/shared/toast";
+import { logActivity } from "@/lib/logger";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -222,16 +223,18 @@ export default function StudentsPage() {
 
     if (editingId) {
       await supabase.from("users").update(payload).eq("id", editingId);
+      logActivity(undefined, "update", "user", editingId, { name: `${form.firstname.trim()} ${form.lastname.trim()}` });
       toast({ title: "Success", description: "Student updated.", variant: "success" });
     } else {
       const password = form.password.trim() || `${form.lastname.trim()}123`;
-      await supabase.from("users").insert({
+      const { data } = await supabase.from("users").insert({
         ...payload,
         role: "student",
         approved: true,
         status: "active",
         password,
-      });
+      }).select();
+      logActivity(undefined, "create", "user", data?.[0]?.id, { name: `${form.firstname.trim()} ${form.lastname.trim()}`, role: "student" });
       toast({ title: "Success", description: "Student added.", variant: "success" });
     }
     setModalOpen(false);
@@ -245,7 +248,10 @@ export default function StudentsPage() {
 
   const handleDelete = async () => {
     if (!deletingId) return;
+    const student = students.find((s) => s.id === deletingId);
+    const studentName = student ? `${student.firstname} ${student.lastname}` : "Unknown";
     await supabase.from("users").delete().eq("id", deletingId);
+    logActivity(undefined, "delete", "user", deletingId, { name: studentName });
     setDeleteOpen(false);
     setDeletingId(null);
     fetchData();
@@ -357,6 +363,7 @@ export default function StudentsPage() {
     if (fileInputRef.current) fileInputRef.current.value = "";
     fetchData();
     toast({ title: "Import Complete", description: `${imported} of ${csvPreview.length} students imported.`, variant: "success" });
+    logActivity(undefined, "import", "user", undefined, { count: imported, total: csvPreview.length, role: "student" });
   };
 
   const statuses = [

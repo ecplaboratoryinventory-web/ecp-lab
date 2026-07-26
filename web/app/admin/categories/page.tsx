@@ -13,6 +13,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Tags, Plus, Pencil, Trash2 } from "lucide-react";
+import { logActivity } from "@/lib/logger";
 import {
   BarChart,
   Bar,
@@ -105,8 +106,10 @@ export default function CategoriesPage() {
 
     if (editingId) {
       await supabase.from("categories").update(payload).eq("id", editingId);
+      logActivity(undefined, "update", "category", editingId, { name: payload.name });
     } else {
-      await supabase.from("categories").insert(payload);
+      const { data } = await supabase.from("categories").insert(payload).select().single();
+      logActivity(undefined, "create", "category", data?.id, { name: payload.name });
     }
     setModalOpen(false);
     fetchCategories();
@@ -128,7 +131,9 @@ export default function CategoriesPage() {
 
   const handleDelete = async () => {
     if (!deletingId) return;
+    const categoryName = categories.find((c) => c.id === deletingId)?.name || "";
     await supabase.from("categories").delete().eq("id", deletingId);
+    logActivity(undefined, "delete", "category", deletingId, { name: categoryName });
     setDeleteOpen(false);
     setDeletingId(null);
     fetchCategories();

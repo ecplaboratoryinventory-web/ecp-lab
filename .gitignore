@@ -42,3 +42,5 @@ mobile/ios/
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
+
+test-credentials.txt

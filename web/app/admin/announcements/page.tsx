@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { logActivity } from "@/lib/logger";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
@@ -161,8 +162,10 @@ export default function AnnouncementsPage() {
 
     if (editingId) {
       await supabase.from("announcements").update(payload).eq("id", editingId);
+      logActivity(undefined, "update", "announcement", editingId, { title: form.title });
     } else {
-      await supabase.from("announcements").insert(payload);
+      const { data } = await supabase.from("announcements").insert(payload).select();
+      logActivity(undefined, "create", "announcement", data?.[0]?.id, { title: form.title });
     }
     setModalOpen(false);
     fetchData();
@@ -181,6 +184,7 @@ export default function AnnouncementsPage() {
             published_at: !a.is_active ? new Date().toISOString() : a.published_at,
           })
           .eq("id", a.id);
+        logActivity(undefined, "update", "announcement", a.id, { title: a.title });
         fetchData();
       }
     );
@@ -188,7 +192,9 @@ export default function AnnouncementsPage() {
 
   const handleDelete = async () => {
     if (!deleteConfirm) return;
+    const deletedAnnouncement = announcements.find(a => a.id === deleteConfirm);
     await supabase.from("announcements").delete().eq("id", deleteConfirm);
+    logActivity(undefined, "delete", "announcement", deleteConfirm, { title: deletedAnnouncement?.title });
     setDeleteConfirm(null);
     fetchData();
   };

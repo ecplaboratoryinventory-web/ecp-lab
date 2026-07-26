@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "@/components/shared/toast";
+import { logActivity } from "@/lib/logger";
+import { uploadImage } from "@/lib/cloudinary";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +13,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -19,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Search, Download, Upload, Pencil, Trash2, Microscope, PackageCheck, Clock, AlertTriangle } from "lucide-react";
+import { Plus, Search, Download, Upload, Pencil, Trash2, Microscope, PackageCheck, Clock, AlertTriangle, Loader2 } from "lucide-react";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 
 interface Equipment {
@@ -58,10 +61,17 @@ export default function EquipmentPage() {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [stats, setStats] = useState({ total: 0, available: 0, borrowed: 0, maintenance: 0 });
+  const [stats, setStats] = useState({ total: 0, available: 0, borrowed: 0, maintenance: 0, needsReplacement: 0 });
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<(() => void) | null>(null);
+
+  const [importOpen, setImportOpen] = useState(false);
+  const [csvPreview, setCsvPreview] = useState<Record<string, string>[]>([]);
+  const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
+  const [csvError, setCsvError] = useState("");
+  const [importing, setImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const withConfirm = (action: () => void) => {
     setConfirmAction(() => action);
@@ -100,7 +110,8 @@ export default function EquipmentPage() {
     const { count: borrowed } = await supabase.from("equipment").select("*", { count: "exact", head: true }).eq("status", "borrowed");
     const { count: maintenance } = await supabase.from("equipment").select("*", { count: "exact", head: true }).eq("status", "under_maintenance");
 
-    setStats({ total: total || 0, available: available || 0, borrowed: borrowed || 0, maintenance: maintenance || 0 });
+    const { count: needsReplacement } = await supabase.from("equipment").select("*", { count: "exact", head: true }).eq("status", "needs_replacement");
+    setStats({ total: total || 0, available: available || 0, borrowed: borrowed || 0, maintenance: maintenance || 0, needsReplacement: needsReplacement || 0 });
     setLoading(false);
   };
 
@@ -178,9 +189,15 @@ export default function EquipmentPage() {
     }
 
     if (editingId) {
-      await supabase.from("equipment").update(form).eq("id", editingId);
+      const payload = { ...form };
+      if (form.condition === "needs_replacement") payload.status = "needs_replacement";
+      await supabase.from("equipment").update(payload).eq("id", editingId);
+      logActivity(undefined, "update", "equipment", editingId, { name: form.name });
     } else {
-      await supabase.from("equipment").insert(form);
+      const payload = { ...form };
+      if (form.condition === "needs_replacement") payload.status = "needs_replacement";
+      const { data } = await supabase.from("equipment").insert(payload).select("id").single();
+      logActivity(undefined, "create", "equipment", data?.id, { name: form.name });
     }
     setModalOpen(false);
     fetchData();
@@ -190,6 +207,7 @@ export default function EquipmentPage() {
   const handleDelete = (id: string) => {
     withConfirm(async () => {
       await supabase.from("equipment").delete().eq("id", id);
+      logActivity(undefined, "delete", "equipment", id);
       fetchData();
       toast({ title: "Deleted", description: "Equipment removed.", variant: "success" });
     });
@@ -218,11 +236,110 @@ export default function EquipmentPage() {
     URL.revokeObjectURL(url);
   };
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCsvError("");
+    setCsvPreview([]);
+    setCsvHeaders([]);
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      const lines = text.trim().split("\n");
+      if (lines.length < 2) {
+        setCsvError("CSV file must have a header row and at least one data row.");
+        return;
+      }
+      const headers = lines[0].split(",").map((h) => h.trim().toLowerCase().replace(/["\r]/g, ""));
+      setCsvHeaders(lines[0].split(",").map((h) => h.trim().replace(/["\r]/g, "")));
+
+      const requiredColumns = ["name", "category"];
+      const missing = requiredColumns.filter((c) => !headers.includes(c));
+      if (missing.length > 0) {
+        setCsvError(`Missing required columns: ${missing.join(", ")}. Required: name, category`);
+        return;
+      }
+
+      const rows: Record<string, string>[] = [];
+      for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(",").map((v) => v.trim().replace(/["\r]/g, ""));
+        const row: Record<string, string> = {};
+        headers.forEach((h, idx) => {
+          row[h] = values[idx] || "";
+        });
+        rows.push(row);
+      }
+      setCsvPreview(rows);
+    };
+    reader.readAsText(file);
+  };
+
+  const handleImportCSV = async () => {
+    if (csvPreview.length === 0) return;
+    setImporting(true);
+
+    const categoryMap = new Map<string, string>();
+    const { data: allCategories } = await supabase.from("categories").select("id, name");
+    if (allCategories) {
+      allCategories.forEach((c: { id: string; name: string }) => {
+        categoryMap.set(c.name.toLowerCase(), c.id);
+      });
+    }
+
+    let imported = 0;
+    for (const row of csvPreview) {
+      if (!row.name || !row.category) continue;
+
+      const categoryName = row.category.trim().toLowerCase();
+      let categoryId = categoryMap.get(categoryName);
+
+      if (!categoryId) {
+        const { data: newCat } = await supabase
+          .from("categories")
+          .insert({ name: row.category.trim() })
+          .select("id")
+          .single();
+        if (newCat?.id) {
+          categoryId = newCat.id;
+          categoryMap.set(categoryName, categoryId!);
+        }
+      }
+
+      const equipmentRow = {
+        name: row.name.trim(),
+        category_id: categoryId || null,
+        quantity: parseInt(row.quantity) || 1,
+        available_quantity: parseInt(row.available_quantity) || parseInt(row.quantity) || 1,
+        serial_number: row.serial_number?.trim() || null,
+        brand: row.brand?.trim() || null,
+        model: row.model?.trim() || null,
+        location: row.location?.trim() || null,
+        condition: row.condition?.trim().toLowerCase() || "good",
+        description: row.description?.trim() || null,
+        status: row.status?.trim().toLowerCase() || "available",
+      };
+
+      const { error } = await supabase.from("equipment").insert(equipmentRow);
+      if (!error) imported++;
+    }
+
+    setImporting(false);
+    setImportOpen(false);
+    setCsvPreview([]);
+    setCsvHeaders([]);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    fetchData();
+    logActivity(undefined, "import", "equipment", undefined, { count: imported, total: csvPreview.length });
+    toast({ title: "Import Complete", description: `${imported} of ${csvPreview.length} items imported.`, variant: "success" });
+  };
+
   const statuses = [
     { value: "all", label: "All", count: stats.total },
     { value: "available", label: "Available", count: stats.available },
     { value: "borrowed", label: "In Use", count: stats.borrowed },
     { value: "under_maintenance", label: "Maintenance", count: stats.maintenance },
+    { value: "needs_replacement", label: "Needs Replacement", count: stats.needsReplacement },
   ];
 
   return (
@@ -242,6 +359,9 @@ export default function EquipmentPage() {
               <Button variant="outline" size="sm" onClick={handleExportCSV} className="gap-1.5 border-[#dde4ec] text-slate">
                 <Download className="h-3.5 w-3.5" /> Export CSV
               </Button>
+              <Button variant="outline" size="sm" onClick={() => setImportOpen(true)} className="gap-1.5 border-[#dde4ec] text-slate">
+                <Upload className="h-3.5 w-3.5" /> Import CSV
+              </Button>
               <Button size="sm" onClick={openCreate} className="gap-1.5 bg-teal hover:bg-teal-dark">
                 <Plus className="h-3.5 w-3.5" /> Add Equipment
               </Button>
@@ -249,11 +369,12 @@ export default function EquipmentPage() {
           </div>
         </div>
 
-        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
           {[
             { label: "Total Equipment", value: stats.total, icon: Microscope, color: "#3b82f6" },
             { label: "Available", value: stats.available, icon: PackageCheck, color: "#10b981" },
             { label: "In Use", value: stats.borrowed, icon: Clock, color: "#f59e0b" },
+            { label: "Needs Replacement", value: stats.needsReplacement, icon: AlertTriangle, color: "#f97316" },
             { label: "Under Maintenance", value: stats.maintenance, icon: AlertTriangle, color: "#ef4444" },
           ].map((s) => (
             <div key={s.label} className="ecp-stat-card">
@@ -358,9 +479,10 @@ export default function EquipmentPage() {
                         <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase ${
                           eq.status === "available" ? "bg-green-100 text-green-700" :
                           eq.status === "borrowed" ? "bg-blue-100 text-blue-700" :
+                          eq.status === "needs_replacement" ? "bg-orange-100 text-orange-700" :
                           "bg-amber-100 text-amber-700"
                         }`}>
-                          {eq.status === "under_maintenance" ? "Maintenance" : eq.status}
+                          {eq.status === "under_maintenance" ? "Maintenance" : eq.status === "needs_replacement" ? "Needs Replacement" : eq.status}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-silver">{eq.location || "-"}</td>
@@ -419,6 +541,7 @@ export default function EquipmentPage() {
                     <SelectItem value="available">Available</SelectItem>
                     <SelectItem value="borrowed">Borrowed</SelectItem>
                     <SelectItem value="under_maintenance">Under Maintenance</SelectItem>
+                    <SelectItem value="needs_replacement">Needs Replacement</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -471,6 +594,45 @@ export default function EquipmentPage() {
                   placeholder="e.g., BSCpE, STEM, Chemistry, Physics"
                 />
               </div>
+              <div className="col-span-2">
+                <label className="text-xs font-medium text-slate">Image</label>
+                <div className="mt-1 space-y-2">
+                  {form.image_url && (
+                    <div className="relative h-32 w-32 overflow-hidden rounded-lg border border-[#dde4ec]">
+                      <img src={form.image_url} alt="Preview" className="h-full w-full object-cover" />
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        setUploading(true);
+                        try {
+                          const url = await uploadImage(file);
+                          setForm({ ...form, image_url: url });
+                          toast({ title: "Uploaded", description: "Image uploaded successfully.", variant: "success" });
+                        } catch {
+                          toast({ title: "Upload Failed", description: "Could not upload image.", variant: "error" });
+                        } finally {
+                          setUploading(false);
+                        }
+                      }}
+                      disabled={uploading}
+                      className="border-[#dde4ec]"
+                    />
+                    {uploading && <Loader2 className="h-5 w-5 animate-spin text-teal" />}
+                  </div>
+                  <Input
+                    value={form.image_url}
+                    onChange={(e) => setForm({ ...form, image_url: e.target.value })}
+                    placeholder="Or paste image URL..."
+                    className="border-[#dde4ec]"
+                  />
+                </div>
+              </div>
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={() => setModalOpen(false)} className="border-[#dde4ec]">Cancel</Button>
@@ -479,6 +641,95 @@ export default function EquipmentPage() {
           </DialogContent>
         </Dialog>
       </div>
+      <Dialog open={importOpen} onOpenChange={(open) => {
+        setImportOpen(open);
+        if (!open) {
+          setCsvPreview([]);
+          setCsvHeaders([]);
+          setCsvError("");
+        }
+      }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-navy">Import Equipment from CSV</DialogTitle>
+            <DialogDescription className="text-silver">
+              Upload a CSV file with columns: name, category (required), plus quantity, serial_number, brand, model, location, condition, status, description
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs font-medium text-slate">CSV File</label>
+              <Input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv"
+                onChange={handleFileSelect}
+                className="mt-1 border-[#dde4ec]"
+              />
+            </div>
+
+            {csvError && (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+                {csvError}
+              </div>
+            )}
+
+            {csvPreview.length > 0 && (
+              <>
+                <div>
+                  <p className="mb-2 text-xs font-medium text-silver">
+                    Preview ({csvPreview.length > 5 ? `first 5 of ${csvPreview.length}` : `${csvPreview.length}`} rows)
+                  </p>
+                  <div className="max-h-60 overflow-auto rounded-lg border border-[#dde4ec]">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="border-b border-[#dde4ec] bg-[#f8f9fa] font-semibold text-silver">
+                          {csvHeaders.map((h, i) => (
+                            <th key={i} className="px-3 py-2">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {csvPreview.slice(0, 5).map((row, i) => (
+                          <tr key={i} className="border-b border-[#f0f0f0] last:border-0">
+                            {csvHeaders.map((h, j) => (
+                              <td key={j} className="px-3 py-2">{row[h.trim().toLowerCase().replace(/["\r]/g, "")] || "-"}</td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setImportOpen(false);
+                      setCsvPreview([]);
+                      setCsvHeaders([]);
+                      setCsvError("");
+                    }}
+                    className="border-[#dde4ec]"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleImportCSV}
+                    disabled={importing}
+                    className="bg-teal hover:bg-teal-dark"
+                  >
+                    {importing ? "Importing..." : `Import ${csvPreview.length} Items`}
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}

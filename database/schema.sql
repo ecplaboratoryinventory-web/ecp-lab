@@ -67,8 +67,8 @@ CREATE TABLE equipment (
   available_quantity INTEGER DEFAULT 0,
   location TEXT,
   image_url TEXT,
-  status TEXT DEFAULT 'available' CHECK (status IN ('available', 'borrowed', 'under_maintenance')),
-  condition TEXT DEFAULT 'good' CHECK (condition IN ('good', 'fair', 'poor')),
+  status TEXT DEFAULT 'available' CHECK (status IN ('available', 'borrowed', 'under_maintenance', 'needs_replacement')),
+  condition TEXT DEFAULT 'good' CHECK (condition IN ('good', 'fair', 'poor', 'needs_replacement')),
   purchase_date DATE,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()

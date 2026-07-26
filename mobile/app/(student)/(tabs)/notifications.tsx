@@ -1,29 +1,60 @@
-import { useEffect, useState } from "react";
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator } from "react-native";
+import { useEffect, useState, useRef } from "react";
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator, RefreshControl, Animated } from "react-native";
 import { supabase } from "@/lib/supabase";
+
+function SkeletonBlock({ style }: { style: any }) {
+  const opacity = useRef(new Animated.Value(0.3)).current;
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, { toValue: 0.7, duration: 800, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0.3, duration: 800, useNativeDriver: true }),
+      ])
+    );
+    animation.start();
+    return () => animation.stop();
+  }, []);
+  return <Animated.View style={[{ backgroundColor: "#E8ECF0", borderRadius: 8 }, style, { opacity }]} />;
+}
 
 export default function NotificationsScreen() {
   const [notifs, setNotifs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchData = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data } = await supabase.from("notifications").select("*").eq("user_id", user.id).order("created_at", { ascending: false });
+    setNotifs(data || []);
+  };
 
   useEffect(() => {
-    const fetch = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data } = await supabase.from("notifications").select("*").eq("user_id", user.id).order("created_at", { ascending: false });
-      setNotifs(data || []);
-      setLoading(false);
-    };
-    fetch();
+    fetchData().finally(() => setLoading(false));
   }, []);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchData();
+    setRefreshing(false);
+  };
 
   const markRead = async (id: string) => {
     await supabase.from("notifications").update({ is_read: true }).eq("id", id);
     setNotifs((prev) => prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)));
   };
 
-  const typePrefix: Record<string, string> = {
-    borrow_status: "✅", damage_report: "⚠️", announcement: "📢", system: "🔔",
+  const getIcon = (item: any) => {
+    if (item.type === "borrow_status") {
+      const t = (item.title || "").toLowerCase();
+      if (t.includes("approved") || t.includes("approuvé")) return "✅";
+      if (t.includes("denied") || t.includes("rejected") || t.includes("refusé") || t.includes("rejeté")) return "❌";
+      if (t.includes("returned") || t.includes("retourné")) return "🔄";
+    }
+    const icons: Record<string, string> = {
+      damage_report: "⚠️", announcement: "📢", system: "🔔",
+    };
+    return icons[item.type] || "🔔";
   };
 
   return (
@@ -32,7 +63,18 @@ export default function NotificationsScreen() {
         <Text style={styles.title}>Notifications</Text>
       </View>
       {loading ? (
-        <ActivityIndicator size="large" color="#1A2980" style={{ marginTop: 40 }} />
+        <View style={{ padding: 8 }}>
+          {[1, 2, 3, 4, 5].map((i) => (
+            <View key={i} style={[styles.card, { backgroundColor: "#fff" }]}>
+              <View style={[styles.accentBar, { backgroundColor: "#E8ECF0" }]} />
+              <View style={{ flex: 1 }}>
+                <SkeletonBlock style={{ height: 14, width: "60%", marginBottom: 8 }} />
+                <SkeletonBlock style={{ height: 12, width: "90%", marginBottom: 6 }} />
+                <SkeletonBlock style={{ height: 10, width: "35%" }} />
+              </View>
+            </View>
+          ))}
+        </View>
       ) : notifs.length === 0 ? (
         <View style={styles.empty}>
           <Text style={{ fontSize: 56 }}>🔔</Text>
@@ -42,12 +84,13 @@ export default function NotificationsScreen() {
         <FlatList
           data={notifs}
           contentContainerStyle={{ padding: 8 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#1A2980"]} />}
           renderItem={({ item }) => (
             <TouchableOpacity style={[styles.card, item.is_read && styles.cardRead]} onPress={() => markRead(item.id)}>
               <View style={styles.accentBar} />
               <View style={{ flex: 1 }}>
                 <Text style={[styles.notifTitle, item.is_read && styles.textRead]}>
-                  {typePrefix[item.type] || "🔔"} {item.title}
+                  {getIcon(item)} {item.title}
                 </Text>
                 <Text style={[styles.notifMsg, item.is_read && styles.textRead]}>{item.message}</Text>
                 <Text style={styles.notifTime}>{new Date(item.created_at).toLocaleString()}</Text>

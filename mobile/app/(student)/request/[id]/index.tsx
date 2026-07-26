@@ -1,7 +1,22 @@
-import { useEffect, useState } from "react";
-import { View, Text, ScrollView, StyleSheet, ActivityIndicator, TouchableOpacity, Alert, TextInput } from "react-native";
+import { useEffect, useState, useRef } from "react";
+import { View, Text, ScrollView, StyleSheet, ActivityIndicator, TouchableOpacity, Alert, TextInput, Animated } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { useLocalSearchParams, useRouter } from "expo-router";
+
+function SkeletonBlock({ style }: { style: any }) {
+  const opacity = useRef(new Animated.Value(0.3)).current;
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, { toValue: 0.7, duration: 800, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0.3, duration: 800, useNativeDriver: true }),
+      ])
+    );
+    animation.start();
+    return () => animation.stop();
+  }, []);
+  return <Animated.View style={[{ backgroundColor: "#E8ECF0", borderRadius: 8 }, style, { opacity }]} />;
+}
 
 export default function RequestDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -21,8 +36,9 @@ export default function RequestDetailScreen() {
     fetch();
   }, [id]);
 
-  const steps = ["Pending", "Approved", "Borrowed", "Returned"];
-  const currentStep = steps.indexOf(request?.status === "denied" || request?.status === "rejected" ? "Rejected" : request?.status?.charAt(0).toUpperCase() + request?.status?.slice(1));
+  const steps = ["Pending", "Borrowed", "Returned"];
+  const statusIndex: Record<string, number> = { pending: 0, approved: 0, borrowed: 1, returned: 2 };
+  const currentStep = statusIndex[request?.status] ?? -1;
 
   const handleDamageReport = async () => {
     if (!damageDesc) { Alert.alert("Error", "Describe the damage"); return; }
@@ -42,7 +58,35 @@ export default function RequestDetailScreen() {
     Alert.alert("Reported", "Damage report submitted");
   };
 
-  if (loading) return <ActivityIndicator size="large" color="#1A2980" style={{ flex: 1 }} />;
+  if (loading) return (
+    <View style={styles.container}>
+      <ScrollView>
+        <View style={styles.header}>
+          <SkeletonBlock style={{ width: 60, height: 14, backgroundColor: "rgba(255,255,255,0.3)", borderRadius: 4 }} />
+          <SkeletonBlock style={{ width: 200, height: 20, backgroundColor: "rgba(255,255,255,0.3)", borderRadius: 4, marginTop: 10 }} />
+        </View>
+        <View style={[styles.tracker, { flexDirection: "row" }]}>
+          {[1, 2, 3, 4].map((i) => (
+            <View key={i} style={{ flex: 1, alignItems: "center" }}>
+              <SkeletonBlock style={{ width: 16, height: 16, borderRadius: 8 }} />
+              <SkeletonBlock style={{ width: 50, height: 10, marginTop: 6 }} />
+            </View>
+          ))}
+        </View>
+        <View style={[styles.card, { margin: 16, borderRadius: 16, padding: 20, backgroundColor: "#fff" }]}>
+          {[1, 2, 3, 4, 5].map((i) => (
+            <View key={i}>
+              <View style={[styles.row, { marginBottom: i < 5 ? 0 : 0 }]}>
+                <SkeletonBlock style={{ height: 12, width: 80 }} />
+                <SkeletonBlock style={{ height: 13, width: 140 }} />
+              </View>
+              {i < 5 && <View style={styles.divider} />}
+            </View>
+          ))}
+        </View>
+      </ScrollView>
+    </View>
+  );
   if (!request) return <Text style={{ textAlign: "center", marginTop: 60 }}>Request not found</Text>;
 
   const isDenied = request.status === "denied" || request.status === "rejected";
@@ -63,8 +107,8 @@ export default function RequestDetailScreen() {
         {/* Step Progress */}
         <View style={styles.tracker}>
           {steps.map((step, i) => {
-            const done = steps.indexOf(step) <= steps.indexOf(request.status);
-            const active = steps.indexOf(step) === steps.indexOf(request.status);
+            const done = i <= currentStep;
+            const active = i === currentStep;
             return (
               <View key={step} style={styles.stepWrap}>
                 <View style={[styles.stepDot, done && styles.stepDone, active && styles.stepActive, isDenied && styles.stepDenied]} />

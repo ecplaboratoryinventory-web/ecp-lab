@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { logActivity } from "@/lib/logger";
+import { createNotification, notifyRole } from "@/lib/notifications";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -146,6 +148,13 @@ export default function BorrowRequestsPage() {
 
   const supabase = createClient();
 
+  const getEquipmentName = (req: BorrowRequest): string => {
+    const items = req.borrow_items || [];
+    if (items.length === 0) return "Unknown equipment";
+    if (items.length === 1) return items[0].equipment?.name || "Unknown equipment";
+    return `${items.length} items`;
+  };
+
   useEffect(() => {
     const interval = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(interval);
@@ -247,6 +256,19 @@ export default function BorrowRequestsPage() {
           approved_at: new Date().toISOString(),
         })
         .eq("id", id);
+      const borrowRequest = requests.find((r) => r.id === id);
+      const equipmentName = borrowRequest ? getEquipmentName(borrowRequest) : "Unknown equipment";
+      logActivity(undefined, "approve", "borrow_request", id, { status: "approved" });
+      if (borrowRequest) {
+        await createNotification(
+          borrowRequest.user_id,
+          "Borrow Request Approved",
+          `Your borrow request for ${equipmentName} has been approved.`,
+          "borrow_status",
+          "borrow_request",
+          id
+        );
+      }
       fetchData();
     });
   };
@@ -260,6 +282,16 @@ export default function BorrowRequestsPage() {
         denied_reason: rejectReason,
       })
       .eq("id", selectedRequest.id);
+    const equipmentName = getEquipmentName(selectedRequest);
+    logActivity(undefined, "reject", "borrow_request", selectedRequest.id, { status: "denied", reason: rejectReason });
+    await createNotification(
+      selectedRequest.user_id,
+      "Borrow Request Denied",
+      `Your borrow request for ${equipmentName} was denied.${rejectReason ? ` Reason: ${rejectReason}` : ""}`,
+      "borrow_status",
+      "borrow_request",
+      selectedRequest.id
+    );
     setRejectOpen(false);
     setRejectReason("");
     setSelectedRequest(null);
@@ -320,14 +352,17 @@ export default function BorrowRequestsPage() {
       if (!fullyReturned) allReturned = false;
 
       if (item.condition === "damaged" || item.condition === "lost") {
-        await supabase.from("damage_reports").insert({
+        const { data: damageReport } = await supabase.from("damage_reports").insert({
           user_id: selectedRequest.user_id,
           equipment_id: (selectedRequest.borrow_items || []).find((bi) => bi.id === item.borrowItemId)?.equipment_id,
           borrow_request_id: selectedRequest.id,
           description: `Condition on return: ${item.condition}`,
           severity: item.condition === "lost" ? "critical" : "minor",
           status: "pending",
-        });
+        }).select("id, severity, equipment_id").single();
+        if (damageReport) {
+          logActivity(undefined, "damage_report", "damage_report", damageReport.id, { severity: damageReport.severity, equipment_id: damageReport.equipment_id });
+        }
       }
     }
 
@@ -339,6 +374,16 @@ export default function BorrowRequestsPage() {
           actual_return_date: new Date().toISOString(),
         })
         .eq("id", selectedRequest.id);
+      const equipmentName = getEquipmentName(selectedRequest);
+      logActivity(undefined, "return", "borrow_request", selectedRequest.id, { status: "returned" });
+      await createNotification(
+        selectedRequest.user_id,
+        "Equipment Returned",
+        `Your return for ${equipmentName} has been processed.`,
+        "borrow_status",
+        "borrow_request",
+        selectedRequest.id
+      );
     } else if (selectedRequest.status === "approved") {
       await supabase
         .from("borrow_requests")
@@ -372,14 +417,25 @@ export default function BorrowRequestsPage() {
     if (!selectedRequest || !damageDescription.trim()) return;
 
     for (const item of damageItems) {
-      await supabase.from("damage_reports").insert({
+      const { data: report } = await supabase.from("damage_reports").insert({
         user_id: selectedRequest.user_id,
         equipment_id: item.equipmentId,
         borrow_request_id: selectedRequest.id,
         description: damageDescription,
         severity: damageSeverity,
         status: "pending",
-      });
+      }).select("id").single();
+      if (report) {
+        logActivity(undefined, "damage_report", "damage_report", report.id, { severity: damageSeverity, equipment_id: item.equipmentId });
+        await notifyRole(
+          "admin",
+          "Damage Report Filed",
+          `${selectedRequest.users?.full_name || "Student"} reported damage on ${item.equipmentName}.`,
+          "damage_report",
+          "damage_report",
+          report.id
+        );
+      }
     }
 
     setDamageOpen(false);

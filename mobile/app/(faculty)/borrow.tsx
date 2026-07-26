@@ -1,25 +1,10 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import {
   View, Text, FlatList, StyleSheet, TouchableOpacity,
-  TextInput, Alert, ActivityIndicator, ScrollView, Animated,
+  TextInput, Alert, ActivityIndicator, ScrollView,
 } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "expo-router";
-
-function SkeletonBlock({ style }: { style: any }) {
-  const opacity = useRef(new Animated.Value(0.3)).current;
-  useEffect(() => {
-    const animation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(opacity, { toValue: 0.7, duration: 800, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 0.3, duration: 800, useNativeDriver: true }),
-      ])
-    );
-    animation.start();
-    return () => animation.stop();
-  }, []);
-  return <Animated.View style={[{ backgroundColor: "#E8ECF0", borderRadius: 8 }, style, { opacity }]} />;
-}
 
 interface Equipment {
   id: string; name: string; available_quantity: number; category_id: string;
@@ -27,7 +12,7 @@ interface Equipment {
   categories?: { name: string };
 }
 
-export default function BorrowScreen() {
+export default function FacultyBorrowScreen() {
   const router = useRouter();
   const [equipment, setEquipment] = useState<Equipment[]>([]);
   const [filtered, setFiltered] = useState<Equipment[]>([]);
@@ -35,11 +20,9 @@ export default function BorrowScreen() {
   const [search, setSearch] = useState("");
   const [step, setStep] = useState<"browse" | "form">("browse");
   const [purpose, setPurpose] = useState("");
-  const [returnDate, setReturnDate] = useState("");
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   useEffect(() => {
     const fetch = async () => {
@@ -54,11 +37,8 @@ export default function BorrowScreen() {
   useEffect(() => {
     let result = equipment;
     if (search) result = result.filter((e) => e.name.toLowerCase().includes(search.toLowerCase()));
-    if (selectedCategory) {
-      result = result.filter((e) => (e.categories?.name || "").toLowerCase() === selectedCategory.toLowerCase());
-    }
     setFiltered(result);
-  }, [search, selectedCategory, equipment]);
+  }, [search, equipment]);
 
   const toggleSelect = (id: string) => {
     setSelected((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
@@ -66,71 +46,37 @@ export default function BorrowScreen() {
 
   const selectedItems = equipment.filter((e) => selected.includes(e.id));
 
-  const availableFilteredIds = filtered
-    .filter((e) => e.available_quantity >= 1 && e.status === "available")
-    .map((e) => e.id);
-  const allAvailableSelected = availableFilteredIds.length > 0 && availableFilteredIds.every((id) => selected.includes(id));
-
-  const hardcodedCategories = ["All", "Electronics", "Microcontrollers", "Single Board PCs", "Desktop PCs", "Components"];
-  const dbCategories = [...new Set(equipment.map((e) => e.categories?.name).filter(Boolean) as string[])];
-  const categories = dbCategories.length >= 5 ? ["All", ...dbCategories] : hardcodedCategories;
-
   const handleSubmit = async () => {
-    if (!purpose || !returnDate) { Alert.alert("Error", "Fill in purpose and return date"); return; }
+    if (!purpose) { Alert.alert("Error", "Please enter a purpose"); return; }
     setSubmitting(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
     const { data: req, error } = await supabase.from("borrow_requests").insert({
-      user_id: user.id, request_type: "student", status: "pending",
-      purpose, return_date: returnDate, borrow_date: new Date().toISOString().split("T")[0],
+      user_id: user.id, request_type: "faculty", status: "approved",
+      purpose, borrow_date: new Date().toISOString().split("T")[0],
+      approved_at: new Date().toISOString(),
     }).select("id").single();
 
     if (error || !req) { Alert.alert("Error", error?.message); setSubmitting(false); return; }
 
     for (const item of selectedItems) {
+      const qty = quantities[item.id] || 1;
       await supabase.from("borrow_items").insert({
-        borrow_request_id: req.id, equipment_id: item.id,
-        quantity: quantities[item.id] || 1,
+        borrow_request_id: req.id, equipment_id: item.id, quantity: qty,
       });
+      await supabase.from("equipment").update({
+        available_quantity: Math.max(0, item.available_quantity - qty),
+      }).eq("id", item.id);
     }
 
     setSubmitting(false);
-    Alert.alert("Success", "Borrow request submitted!", [
-      { text: "OK", onPress: () => router.replace("/(student)/(tabs)/requests") },
+    Alert.alert("Success", "Equipment borrowed successfully!", [
+      { text: "OK", onPress: () => router.replace("/(faculty)/(tabs)/home") },
     ]);
   };
 
-  if (loading) return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <View style={{ width: 50, height: 18, backgroundColor: "rgba(255,255,255,0.3)", borderRadius: 4 }} />
-        <View style={{ width: 180, height: 24, backgroundColor: "rgba(255,255,255,0.3)", borderRadius: 4, marginTop: 8 }} />
-      </View>
-      <View style={[styles.searchWrap, { backgroundColor: "#fff" }]}>
-        <SkeletonBlock style={{ flex: 1, height: 20 }} />
-      </View>
-      <View style={styles.chipRowContent}>
-        {[1, 2, 3, 4, 5].map((i) => (
-          <SkeletonBlock key={i} style={{ width: 90, height: 32, borderRadius: 20 }} />
-        ))}
-      </View>
-      <FlatList
-        data={[1, 2, 3, 4, 5, 6]}
-        numColumns={2}
-        contentContainerStyle={{ padding: 12 }}
-        columnWrapperStyle={{ gap: 8, marginBottom: 8 }}
-        renderItem={() => (
-          <View style={[styles.itemCard, { backgroundColor: "#fff", padding: 14 }]}>
-            <SkeletonBlock style={{ height: 14, width: "80%", marginBottom: 8 }} />
-            <SkeletonBlock style={{ height: 11, width: "50%", marginBottom: 6 }} />
-            <SkeletonBlock style={{ height: 11, width: "60%" }} />
-          </View>
-        )}
-        keyExtractor={(_, i) => String(i)}
-      />
-    </View>
-  );
+  if (loading) return <ActivityIndicator size="large" color="#1A2980" style={{ flex: 1 }} />;
 
   return (
     <View style={styles.container}>
@@ -141,7 +87,7 @@ export default function BorrowScreen() {
               <Text style={styles.backBtn}>← Back</Text>
             </TouchableOpacity>
             <Text style={styles.title}>Borrow Equipment</Text>
-            <Text style={styles.hint}>Tap to select, long press for multi-select</Text>
+            <Text style={styles.hint}>Select equipment and specify quantities</Text>
           </View>
 
           <View style={styles.searchWrap}>
@@ -149,32 +95,10 @@ export default function BorrowScreen() {
             <TextInput style={styles.searchInput} placeholder="Search equipment..." value={search} onChangeText={setSearch} />
           </View>
 
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow} contentContainerStyle={styles.chipRowContent}>
-            {categories.map((cat) => {
-              const isActive = (cat === "All" && selectedCategory === null) || cat === selectedCategory;
-              return (
-                <TouchableOpacity
-                  key={cat}
-                  style={[styles.chip, isActive ? styles.chipActive : styles.chipInactive]}
-                  onPress={() => setSelectedCategory(cat === "All" ? null : cat)}
-                >
-                  <Text style={[styles.chipText, isActive ? styles.chipTextActive : styles.chipTextInactive]}>{cat}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-
           {selected.length > 0 && (
             <View style={styles.selectBar}>
               <TouchableOpacity onPress={() => setSelected([])}>
                 <Text style={{ color: "#fff", fontSize: 14 }}>✕ Clear</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => setSelected(allAvailableSelected ? [] : availableFilteredIds)}
-              >
-                <Text style={{ color: "#fff", fontSize: 13, fontWeight: "600" }}>
-                  {allAvailableSelected ? "Deselect All" : "Select All"}
-                </Text>
               </TouchableOpacity>
               <Text style={{ color: "#fff", fontWeight: "bold" }}>{selected.length} selected</Text>
               <TouchableOpacity style={styles.borrowBtn} onPress={() => setStep("form")}>
@@ -237,10 +161,10 @@ export default function BorrowScreen() {
                   </TouchableOpacity>
                   <Text style={styles.stepCount}>{quantities[item.id] || 1}</Text>
                   <TouchableOpacity
-                    style={[styles.stepBtn, { borderColor: "#2196F3" }]}
+                    style={[styles.stepBtn, { borderColor: "#0ea5a0" }]}
                     onPress={() => setQuantities((q) => ({ ...q, [item.id]: Math.min(item.available_quantity, (q[item.id] || 1) + 1) }))}
                   >
-                    <Text style={{ fontSize: 18, color: "#2196F3" }}>+</Text>
+                    <Text style={{ fontSize: 18, color: "#0ea5a0" }}>+</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -249,11 +173,12 @@ export default function BorrowScreen() {
             <Text style={styles.formLabel}>Purpose *</Text>
             <TextInput style={styles.formInput} placeholder="Briefly describe purpose..." value={purpose} onChangeText={setPurpose} multiline />
 
-            <Text style={styles.formLabel}>Return Date *</Text>
-            <TextInput style={styles.formInput} placeholder="YYYY-MM-DD" value={returnDate} onChangeText={setReturnDate} />
+            <View style={styles.infoBox}>
+              <Text style={{ fontSize: 13, color: "#0ea5a0" }}>Faculty borrow requests are automatically approved.</Text>
+            </View>
 
             <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit} disabled={submitting}>
-              {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>Submit Request</Text>}
+              {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>Confirm Borrow</Text>}
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -272,20 +197,20 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, height: 48, fontSize: 15 },
   selectBar: {
     flexDirection: "row", justifyContent: "space-between", alignItems: "center",
-    backgroundColor: "#1565C0", padding: 12, marginHorizontal: 12, borderRadius: 10,
+    backgroundColor: "#0ea5a0", padding: 12, marginHorizontal: 12, borderRadius: 10,
   },
   borrowBtn: { backgroundColor: "#fff", paddingHorizontal: 16, paddingVertical: 8, borderRadius: 18 },
   itemCard: {
     flex: 1, backgroundColor: "#fff", borderRadius: 12, padding: 14, elevation: 2, position: "relative",
   },
-  itemSelected: { borderWidth: 2, borderColor: "#1565C0", backgroundColor: "#E8EAF6" },
+  itemSelected: { borderWidth: 2, borderColor: "#0ea5a0", backgroundColor: "#E6FFFA" },
   itemUnavailable: { opacity: 0.5 },
   itemName: { fontSize: 13, fontWeight: "bold", color: "#212121" },
   itemCat: { fontSize: 11, color: "#757575", marginTop: 2 },
   itemQty: { fontSize: 11, fontWeight: "bold", marginTop: 4 },
   checkmark: {
     position: "absolute", top: 8, right: 8,
-    width: 24, height: 24, borderRadius: 12, backgroundColor: "#1565C0",
+    width: 24, height: 24, borderRadius: 12, backgroundColor: "#0ea5a0",
     justifyContent: "center", alignItems: "center",
   },
   formCard: { backgroundColor: "#fff", margin: 16, borderRadius: 16, padding: 20, elevation: 4 },
@@ -296,14 +221,7 @@ const styles = StyleSheet.create({
   stepCount: { fontSize: 24, fontWeight: "bold", color: "#2C3E50", width: 40, textAlign: "center" },
   formLabel: { fontSize: 13, color: "#555", marginTop: 12, marginBottom: 4 },
   formInput: { backgroundColor: "#F5F7FA", borderRadius: 8, borderWidth: 1, borderColor: "#E0E5EC", padding: 12, fontSize: 15, minHeight: 52 },
-  submitBtn: { backgroundColor: "#2196F3", height: 52, borderRadius: 12, justifyContent: "center", alignItems: "center", marginTop: 20 },
+  infoBox: { backgroundColor: "#E6FFFA", borderRadius: 8, padding: 12, marginTop: 16 },
+  submitBtn: { backgroundColor: "#0ea5a0", height: 52, borderRadius: 12, justifyContent: "center", alignItems: "center", marginTop: 20 },
   submitText: { color: "#fff", fontSize: 15, fontWeight: "bold" },
-  chipRow: { maxHeight: 48 },
-  chipRowContent: { paddingHorizontal: 12, gap: 8, alignItems: "center" },
-  chip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 },
-  chipActive: { backgroundColor: "#1A2980" },
-  chipInactive: { backgroundColor: "#fff", borderWidth: 1, borderColor: "#D0D7E8" },
-  chipText: { fontSize: 13, fontWeight: "600" },
-  chipTextActive: { color: "#fff" },
-  chipTextInactive: { color: "#555" },
 });

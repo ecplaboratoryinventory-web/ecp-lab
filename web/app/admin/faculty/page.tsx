@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { logActivity } from "@/lib/logger";
 import { toast } from "@/components/shared/toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -283,15 +284,17 @@ export default function FacultyPage() {
         updatePayload.password = form.password;
       }
       await supabase.from("users").update(updatePayload).eq("id", editingId);
+      logActivity(undefined, "update", "user", editingId, { name: `${form.firstname} ${form.lastname}`.trim() });
       toast({ title: "Success", description: "Faculty updated.", variant: "success" });
     } else {
       const password = form.password.trim() || `${form.lastname.trim()}123`;
-      await supabase.from("users").insert({
+      const { data } = await supabase.from("users").insert({
         ...payload,
         password,
         status: "active",
         approved: true,
-      });
+      }).select("id").single();
+      logActivity(undefined, "create", "user", data?.id, { name: `${form.firstname} ${form.lastname}`.trim(), role: "faculty" });
       toast({ title: "Success", description: "Faculty added.", variant: "success" });
     }
 
@@ -302,7 +305,10 @@ export default function FacultyPage() {
 
   const handleDelete = async () => {
     if (!deletingId) return;
+    const deletingFaculty = faculty.find((f) => f.id === deletingId);
+    const deletingName = deletingFaculty ? `${deletingFaculty.firstname || ""} ${deletingFaculty.lastname || ""}`.trim() : "";
     await supabase.from("users").delete().eq("id", deletingId);
+    logActivity(undefined, "delete", "user", deletingId, { name: deletingName });
     setDeleteOpen(false);
     setDeletingId(null);
     fetchFaculty();
@@ -319,6 +325,7 @@ export default function FacultyPage() {
       async () => {
         setActionLoading(f.id);
         await supabase.from("users").update({ status: newStatus }).eq("id", f.id);
+        logActivity(undefined, "update", "user", f.id, { name: `${f.firstname || ""} ${f.lastname || ""}`.trim() });
         setActionLoading(null);
         fetchFaculty();
         fetchStats();
@@ -459,6 +466,7 @@ export default function FacultyPage() {
       }
     }
 
+    logActivity(undefined, "import", "user", undefined, { count: imported, total: csvData.length, role: "faculty" });
     setCsvResult({ imported, skipped, duplicates });
     setCsvImporting(false);
     fetchFaculty();

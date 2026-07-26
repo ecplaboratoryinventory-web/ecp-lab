@@ -1,6 +1,21 @@
-import { useEffect, useState } from "react";
-import { View, Text, ScrollView, StyleSheet, ActivityIndicator } from "react-native";
+import { useEffect, useState, useRef } from "react";
+import { View, Text, ScrollView, StyleSheet, ActivityIndicator, Animated } from "react-native";
 import { supabase } from "@/lib/supabase";
+
+function SkeletonBlock({ style }: { style: any }) {
+  const opacity = useRef(new Animated.Value(0.3)).current;
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, { toValue: 0.7, duration: 800, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0.3, duration: 800, useNativeDriver: true }),
+      ])
+    );
+    animation.start();
+    return () => animation.stop();
+  }, []);
+  return <Animated.View style={[{ backgroundColor: "#E8ECF0", borderRadius: 8 }, style, { opacity }]} />;
+}
 
 export default function FacultyHomeScreen() {
   const [name, setName] = useState("");
@@ -29,7 +44,30 @@ export default function FacultyHomeScreen() {
     fetch();
   }, []);
 
-  if (loading) return <ActivityIndicator size="large" color="#1A2980" style={{ flex: 1 }} />;
+  if (loading) return (
+    <View style={styles.container}>
+      <ScrollView>
+        <View style={styles.header}>
+          <SkeletonBlock style={{ width: 160, height: 16, backgroundColor: "rgba(255,255,255,0.3)", borderRadius: 4 }} />
+          <SkeletonBlock style={{ width: 200, height: 26, backgroundColor: "rgba(255,255,255,0.3)", borderRadius: 4, marginTop: 8 }} />
+          <SkeletonBlock style={{ width: 240, height: 13, backgroundColor: "rgba(255,255,255,0.3)", borderRadius: 4, marginTop: 6 }} />
+        </View>
+        <View style={styles.statsRow}>
+          {[1, 2, 3, 4].map((i) => (
+            <View key={i} style={[styles.statCard, { backgroundColor: "#E8ECF0" }]}>
+              <SkeletonBlock style={{ height: 28, width: 60 }} />
+              <SkeletonBlock style={{ height: 11, width: 80, marginTop: 6 }} />
+            </View>
+          ))}
+        </View>
+        <View style={[styles.card, { backgroundColor: "#fff" }]}>
+          <SkeletonBlock style={{ height: 16, width: 140, marginBottom: 12 }} />
+          <SkeletonBlock style={{ height: 13, width: "100%", marginBottom: 6 }} />
+          <SkeletonBlock style={{ height: 13, width: "85%" }} />
+        </View>
+      </ScrollView>
+    </View>
+  );
 
   return (
     <View style={styles.container}>

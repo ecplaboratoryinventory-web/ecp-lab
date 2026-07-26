@@ -12,7 +12,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ScrollText, Search, Download, Calendar } from "lucide-react";
+import { ScrollText, Search, Download, Calendar, FileText } from "lucide-react";
+import { generateActivityLogPDF } from "@/lib/pdf";
 import {
   PieChart,
   Pie,
@@ -295,6 +296,19 @@ export default function ActivityLogsPage() {
     window.print();
   };
 
+  const handleExportPDF = () => {
+    const logData = logs.map((log) => ({
+      userName: log.users?.full_name || "Unknown",
+      action: log.action,
+      entityType: log.entity_type || "",
+      details: log.details as Record<string, unknown> | undefined,
+      createdAt: log.created_at,
+    }));
+    const from = dateFrom ? ` from ${dateFrom}` : "";
+    const to = dateTo ? ` to ${dateTo}` : "";
+    generateActivityLogPDF(logData, `Activity Logs${from}${to}`);
+  };
+
   const chartTabButtons = ["All", "Actions", "Equipment", "Users"] as const;
 
   const renderPieChart = (
@@ -385,6 +399,15 @@ export default function ActivityLogsPage() {
             >
               <Calendar className="mr-1 h-4 w-4" />
               Print
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportPDF}
+              className="border-[#dde4ec]"
+            >
+              <FileText className="mr-1 h-4 w-4" />
+              PDF
             </Button>
           </div>
         </div>

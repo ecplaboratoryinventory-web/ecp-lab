@@ -5,6 +5,7 @@ function TabIcon({ name, focused }: { name: string; focused: boolean }) {
   const icons: Record<string, string> = {
     home: "🏠",
     requests: "📋",
+    "damage-reports": "🛠️",
     borrow: "🔬",
     notifications: "🔔",
     profile: "👤",
@@ -32,6 +33,10 @@ export default function StudentLayout() {
       <Tabs.Screen
         name="(tabs)/requests"
         options={{ tabBarLabel: "Requests", tabBarIcon: ({ focused }) => <TabIcon name="requests" focused={focused} /> }}
+      />
+      <Tabs.Screen
+        name="damage-reports"
+        options={{ tabBarLabel: "Reports", tabBarIcon: ({ focused }) => <TabIcon name="damage-reports" focused={focused} /> }}
       />
       <Tabs.Screen
         name="borrow"

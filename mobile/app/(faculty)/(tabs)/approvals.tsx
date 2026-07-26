@@ -1,23 +1,45 @@
-import { useEffect, useState } from "react";
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from "react-native";
+import { useEffect, useState, useRef } from "react";
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, RefreshControl, Animated } from "react-native";
 import { supabase } from "@/lib/supabase";
+
+function SkeletonBlock({ style }: { style: any }) {
+  const opacity = useRef(new Animated.Value(0.3)).current;
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, { toValue: 0.7, duration: 800, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0.3, duration: 800, useNativeDriver: true }),
+      ])
+    );
+    animation.start();
+    return () => animation.stop();
+  }, []);
+  return <Animated.View style={[{ backgroundColor: "#E8ECF0", borderRadius: 8 }, style, { opacity }]} />;
+}
 
 export default function FacultyApprovalsScreen() {
   const [requests, setRequests] = useState<any[]>([]);
   const [filter, setFilter] = useState("pending");
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchData = async () => {
+    let query = supabase.from("borrow_requests").select("*, users!borrow_requests_user_id_fkey(full_name, id_no), borrow_items(*, equipment:equipment_id(name))").eq("request_type", "student").order("created_at", { ascending: false });
+    if (filter !== "all") query = query.eq("status", filter);
+    const { data } = await query;
+    setRequests(data || []);
+  };
 
   useEffect(() => {
-    const fetch = async () => {
-      let query = supabase.from("borrow_requests").select("*, users!borrow_requests_user_id_fkey(full_name, id_no), borrow_items(*, equipment:equipment_id(name))").eq("request_type", "student").order("created_at", { ascending: false });
-      if (filter !== "all") query = query.eq("status", filter);
-      const { data } = await query;
-      setRequests(data || []);
-      setLoading(false);
-    };
-    fetch();
+    fetchData().finally(() => setLoading(false));
   }, [filter]);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchData();
+    setRefreshing(false);
+  };
 
   const handleAction = async (id: string, action: "approved" | "denied") => {
     setActing(id);
@@ -38,7 +60,33 @@ export default function FacultyApprovalsScreen() {
 
   const filters = ["pending", "approved", "denied", "all"];
 
-  if (loading) return <ActivityIndicator size="large" color="#1A2980" style={{ flex: 1 }} />;
+  if (loading) return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <SkeletonBlock style={{ width: 180, height: 24, backgroundColor: "rgba(255,255,255,0.3)", borderRadius: 4 }} />
+      </View>
+      <View style={[styles.filterRow, { backgroundColor: "#fff" }]}>
+        {[1, 2, 3, 4].map((i) => (
+          <SkeletonBlock key={i} style={{ width: 72, height: 32, borderRadius: 20 }} />
+        ))}
+      </View>
+      <FlatList
+        data={[1, 2, 3, 4, 5]}
+        contentContainerStyle={{ padding: 12 }}
+        renderItem={() => (
+          <View style={[styles.card, { backgroundColor: "#fff" }]}>
+            <View style={{ flex: 1 }}>
+              <SkeletonBlock style={{ height: 15, width: "60%", marginBottom: 8 }} />
+              <SkeletonBlock style={{ height: 12, width: "40%", marginBottom: 6 }} />
+              <SkeletonBlock style={{ height: 13, width: "80%", marginBottom: 4 }} />
+              <SkeletonBlock style={{ height: 12, width: "55%" }} />
+            </View>
+          </View>
+        )}
+        keyExtractor={(_, i) => String(i)}
+      />
+    </View>
+  );
 
   return (
     <View style={styles.container}>
@@ -57,6 +105,7 @@ export default function FacultyApprovalsScreen() {
       <FlatList
         data={requests}
         contentContainerStyle={{ padding: 12 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#1A2980"]} />}
         renderItem={({ item }) => (
           <View style={styles.card}>
             <View style={{ flex: 1 }}>

@@ -1,23 +1,45 @@
-import { useEffect, useState } from "react";
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator } from "react-native";
+import { useEffect, useState, useRef } from "react";
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator, RefreshControl, Animated } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "expo-router";
+
+function SkeletonBlock({ style }: { style: any }) {
+  const opacity = useRef(new Animated.Value(0.3)).current;
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, { toValue: 0.7, duration: 800, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0.3, duration: 800, useNativeDriver: true }),
+      ])
+    );
+    animation.start();
+    return () => animation.stop();
+  }, []);
+  return <Animated.View style={[{ backgroundColor: "#E8ECF0", borderRadius: 8 }, style, { opacity }]} />;
+}
 
 export default function RequestsScreen() {
   const router = useRouter();
   const [requests, setRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchData = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data } = await supabase.from("borrow_requests").select("*, borrow_items(equipment_id, quantity, equipment:equipment_id(name))").eq("user_id", user.id).order("created_at", { ascending: false });
+    setRequests(data || []);
+  };
 
   useEffect(() => {
-    const fetch = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data } = await supabase.from("borrow_requests").select("*, borrow_items(equipment_id, quantity, equipment:equipment_id(name))").eq("user_id", user.id).order("created_at", { ascending: false });
-      setRequests(data || []);
-      setLoading(false);
-    };
-    fetch();
+    fetchData().finally(() => setLoading(false));
   }, []);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchData();
+    setRefreshing(false);
+  };
 
   const statusColors: Record<string, string> = {
     pending: "#F39C12", approved: "#2196F3", borrowed: "#3498DB", returned: "#2ECC71", denied: "#E74C3C", rejected: "#E74C3C",
@@ -30,7 +52,17 @@ export default function RequestsScreen() {
         <Text style={styles.subtitle}>Track your equipment requests</Text>
       </View>
       {loading ? (
-        <ActivityIndicator size="large" color="#1A2980" style={{ marginTop: 40 }} />
+        <View style={{ padding: 12 }}>
+          {[1, 2, 3, 4, 5].map((i) => (
+            <View key={i} style={[styles.card, { backgroundColor: "#fff" }]}>
+              <View style={{ flex: 1 }}>
+                <SkeletonBlock style={{ height: 14, width: "70%", marginBottom: 8 }} />
+                <SkeletonBlock style={{ height: 12, width: "45%" }} />
+              </View>
+              <SkeletonBlock style={{ height: 24, width: 72, borderRadius: 12 }} />
+            </View>
+          ))}
+        </View>
       ) : requests.length === 0 ? (
         <View style={styles.empty}>
           <Text style={{ fontSize: 56 }}>📋</Text>
@@ -41,6 +73,7 @@ export default function RequestsScreen() {
         <FlatList
           data={requests}
           contentContainerStyle={{ padding: 12 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#1A2980"]} />}
           renderItem={({ item }) => (
             <TouchableOpacity style={styles.card} onPress={() => router.push(`/(student)/request/${item.id}`)}>
               <View style={{ flex: 1 }}>
