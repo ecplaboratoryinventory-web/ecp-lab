@@ -1,11 +1,71 @@
-import { resetPasswordAction } from "./actions";
+"use client";
 
-export default async function ResetPasswordPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ error?: string }>;
-}) {
-  const { error } = await searchParams;
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
+
+function ResetPasswordForm() {
+  const params = useSearchParams();
+  const urlError = params.get("error");
+  const [email, setEmail] = useState("");
+  const [error, setError] = useState(urlError || "");
+  const [loading, setLoading] = useState(false);
+  const [sent, setSent] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    if (!email) { setError("Please enter your email."); return; }
+
+    setLoading(true);
+    const res = await fetch("/api/auth/request-reset", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    const data = await res.json();
+    setLoading(false);
+
+    if (data.error) {
+      setError(data.error);
+    } else {
+      setSent(true);
+      setTimeout(() => { window.location.href = "/auth/login?message=Check%20your%20email%21"; }, 3000);
+    }
+  };
+
+  if (sent) {
+    return (
+      <div style={{ fontFamily: "'Lato', sans-serif" }}>
+        <div className="fixed inset-0 z-0 bg-cover bg-center" style={{ backgroundColor: "#ecf0f1" }} />
+        <div className="fixed inset-0 z-[1]" style={{ background: "rgba(236, 240, 241, 0.78)" }} />
+        <div className="relative z-10 flex min-h-screen items-center justify-center px-5 py-5">
+          <div className="flex w-full max-w-[820px] overflow-hidden rounded-md border border-[#cdd3d4] bg-white shadow-lg" style={{ minHeight: 480 }}>
+            <div className="relative flex w-[320px] flex-col justify-between overflow-hidden p-[50px_38px]" style={{ background: "#2c3e50" }}>
+              <div>
+                <div className="mb-[22px] flex h-[52px] w-[52px] items-center justify-center rounded-md border border-white/10 bg-white/10">
+                  <img src="/images/logo-main.png" alt="ECP" className="h-14 w-14 object-contain" />
+                </div>
+                <h2 className="m-0 mb-2.5 text-[1.3rem] font-black tracking-tight text-white">Check Your Email</h2>
+                <p className="m-0 text-[0.84rem] leading-relaxed text-white/50">We&rsquo;ve sent a reset link<br />to your email address.</p>
+              </div>
+              <div className="absolute -bottom-[70px] -right-[70px] h-[220px] w-[220px] rounded-full" style={{ background: "rgba(255,255,255,0.04)" }} />
+            </div>
+            <div className="flex flex-1 flex-col items-center justify-center bg-white px-[45px] py-11 text-center">
+              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full" style={{ background: "rgba(24,188,156,0.1)" }}>
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#18bc9c" strokeWidth="2"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+              </div>
+              <h1 className="m-0 mb-1 text-[1.45rem] font-black" style={{ color: "#18bc9c" }}>Email Sent!</h1>
+              <p className="m-0 text-[0.86rem]" style={{ color: "#7b8a8b" }}>Redirecting to login&hellip;</p>
+              <div className="mt-4 h-1 w-32 overflow-hidden rounded-full bg-[#ecf0f1]">
+                <div className="h-full animate-[shrink_3s_linear_forwards] rounded-full" style={{ background: "#18bc9c", width: "100%" }} />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ fontFamily: "'Lato', sans-serif" }}>
       <div className="fixed inset-0 z-0 bg-cover bg-center" style={{ backgroundColor: "#ecf0f1" }} />
@@ -54,7 +114,7 @@ export default async function ResetPasswordPage({
               </div>
             )}
 
-            <form action={resetPasswordAction} className="space-y-[14px]">
+            <form onSubmit={handleSubmit} className="space-y-[14px]">
               <div>
                 <label className="mb-1.5 block text-[0.75rem] font-bold uppercase tracking-wider" style={{ color: "#7b8a8b" }}>Email</label>
                 <div className="group flex overflow-hidden rounded border border-[#cdd3d4] transition-all focus-within:border-[#18bc9c] focus-within:shadow-[0_0_0_3px_rgba(24,188,156,0.14)]">
@@ -62,7 +122,7 @@ export default async function ResetPasswordPage({
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
                   </div>
                   <input
-                    id="email" name="email" type="email" required
+                    type="email" value={email} onChange={(e) => setEmail(e.target.value)} required
                     placeholder="you@school.edu"
                     className="h-[42px] flex-1 border-none bg-white px-[14px] text-[0.9rem] text-[#2c3e50] outline-none placeholder:text-[#bdc3c7]"
                     style={{ fontFamily: "'Lato', sans-serif" }}
@@ -72,11 +132,16 @@ export default async function ResetPasswordPage({
 
               <button
                 type="submit"
-                className="mt-1.5 flex h-[42px] w-full items-center justify-center gap-2 rounded border text-[0.93rem] font-bold tracking-wide text-white transition-colors"
+                disabled={loading}
+                className="mt-1.5 flex h-[42px] w-full items-center justify-center gap-2 rounded border text-[0.93rem] font-bold tracking-wide text-white transition-colors disabled:opacity-50"
                 style={{ background: "#18bc9c", borderColor: "#18bc9c", fontFamily: "'Lato', sans-serif" }}
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
-                Send Reset Link
+                {loading ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" /> : (
+                  <>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+                    Send Reset Link
+                  </>
+                )}
               </button>
             </form>
 
@@ -90,5 +155,17 @@ export default async function ResetPasswordPage({
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center" style={{ background: "#ecf0f1", fontFamily: "'Lato', sans-serif" }}>
+        <div className="text-[#7b8a8b]">Loading...</div>
+      </div>
+    }>
+      <ResetPasswordForm />
+    </Suspense>
   );
 }
