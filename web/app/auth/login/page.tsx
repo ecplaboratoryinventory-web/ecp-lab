@@ -178,7 +178,7 @@ export default function LoginPage() {
                 </a>
               </div>
 
-              <button
+                  <button
                     type="button"
                     onClick={() => setShowPw(!showPw)}
                     className="flex items-center border-l border-[#e8ecec] bg-transparent px-[13px] text-[#bdc3c7] transition-colors hover:text-[#7b8a8b]"
@@ -204,6 +204,12 @@ export default function LoginPage() {
                 )}
               </button>
             </form>
+
+            <div className="mt-4 text-center">
+              <a href="/auth/reset-password" className="text-[0.83rem] no-underline transition-colors hover:underline" style={{ color: "#18bc9c" }}>
+                Forgot password?
+              </a>
+            </div>
 
             <div className="mt-5 border-t border-[#ecf0f1] pt-[18px] text-center">
               <a
