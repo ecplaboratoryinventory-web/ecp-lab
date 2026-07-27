@@ -1,6 +1,11 @@
 import { resetPasswordAction } from "./actions";
 
-export default function ResetPasswordPage() {
+export default async function ResetPasswordPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const { error } = await searchParams;
   return (
     <div style={{ fontFamily: "'Lato', sans-serif" }}>
       <div className="fixed inset-0 z-0 bg-cover bg-center" style={{ backgroundColor: "#ecf0f1" }} />
@@ -41,6 +46,13 @@ export default function ResetPasswordPage() {
               <h1 className="m-0 mb-1 text-[1.45rem] font-black" style={{ color: "#2c3e50" }}>Forgot Password?</h1>
               <p className="m-0 text-[0.86rem]" style={{ color: "#7b8a8b" }}>We&rsquo;ll email you a reset link</p>
             </div>
+
+            {error && (
+              <div className="mb-[22px] flex items-start gap-2.5 rounded p-[11px_15px] text-[0.85rem]" style={{ background: "#fdf3f3", border: "1px solid #e2a9a9", borderLeft: "4px solid #e74c3c", color: "#922b21" }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#e74c3c" strokeWidth="2" className="mt-px shrink-0"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                {error}
+              </div>
+            )}
 
             <form action={resetPasswordAction} className="space-y-[14px]">
               <div>
