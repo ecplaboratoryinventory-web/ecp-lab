@@ -172,7 +172,7 @@ export default function LoginPage() {
                     className="h-[42px] flex-1 border-none bg-white px-[14px] text-[0.9rem] text-[#2c3e50] outline-none placeholder:text-[#bdc3c7]"
                     style={{ fontFamily: "'Lato', sans-serif" }}
                   />
-              <div className="mt-[-6px] text-right">
+              <div className="mt-1.5 text-right">
                 <a href="/auth/reset-password" className="text-[0.79rem] no-underline transition-colors hover:underline" style={{ color: "#18bc9c" }}>
                   Forgot password?
                 </a>
