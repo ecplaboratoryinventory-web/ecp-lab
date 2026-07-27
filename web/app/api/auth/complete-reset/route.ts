@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Password must be at least 6 characters" }, { status: 400 });
     }
 
-    const supabase = await createClient();
+    const supabase = await createServiceClient();
     const hashedToken = crypto.createHash("sha256").update(token + email).digest("hex");
 
     // Find user with valid reset token
