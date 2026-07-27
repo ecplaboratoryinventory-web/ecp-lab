@@ -203,13 +203,11 @@ export default function LoginPage() {
                   </>
                 )}
               </button>
-            </form>
 
-            <div className="mt-4 text-center">
-              <a href="/auth/reset-password" className="text-[0.83rem] no-underline transition-colors hover:underline" style={{ color: "#18bc9c" }}>
-                Forgot password?
-              </a>
-            </div>
+              <div className="mt-2 text-center">
+                <a href="/auth/reset-password" className="text-[0.79rem] no-underline transition-colors hover:underline" style={{ color: "#18bc9c" }}>Forgot password?</a>
+              </div>
+            </form>
 
             <div className="mt-5 border-t border-[#ecf0f1] pt-[18px] text-center">
               <a
