@@ -53,13 +53,13 @@ Confirmed against `CAPSTONE-ALIGNMENT.md`. These remain open:
 ### Web app
 | Item | Detail |
 |---|---|
-| Orphan pages not in any nav | `/admin/reports`, `/admin/damage-reports`, `/admin/notifications`, `/faculty/schedule` |
+| ~~Orphan pages not in any nav~~ | ✅ `/admin/reports`, `/admin/damage-reports`, `/admin/notifications`, `/faculty/schedule` all wired into sidebar nav (Aug 14) |
 | PWA | PLAN.md says "Web + PWA" — no manifest/service worker; `next.config.ts` empty |
 | QR code generation | PLAN Phase 3 spec — not implemented |
 | Settings persistence | `admin/settings` is localStorage-only; borrow duration/max-items not enforced server-side |
-| Faculty approval → notification | Faculty approving a student request creates no notification (spec §5.1) |
+| ~~Faculty approval → notification~~ | ✅ Web + mobile faculty approval/denial now create a student notification via `create_borrow_notification` RPC (spec §5.1) |
 | Dead code | `auth/login/actions.ts`, `auth/reset-password/actions.ts` unused |
-| Password change (faculty) | `faculty/profile` calls `updateUser` without verifying current password |
+| ~~Password change (faculty)~~ | ✅ `faculty/profile` now verifies current password via `signInWithPassword` before `updateUser` |
 | Lint | **132 problems (58 errors)** — `react-hooks/set-state-in-effect` (all fetch pages), `no-explicit-any`, purity, unescaped entities |
 
 ### Mobile app
@@ -68,7 +68,7 @@ Confirmed against `CAPSTONE-ALIGNMENT.md`. These remain open:
 | Student home | Mostly placeholder — no search/chips/equipment grid/realtime/scan; "Recent Activity" hardcoded stub; autoplay interval closes over stale `slides` |
 | Notifications | No "mark all as read", no deep-link to entity, **no Realtime subscription** (zero `channel()` calls in the app) |
 | Request detail | No Return/Cancel/contact-admin; damage report hardcodes `severity:"minor"` + only links `borrow_items[0]`; no `actual_return_date` |
-| Profile | No change-password/delete-account/picture upload; edit saves email to `users` but **never `auth.updateUser`** → login email desyncs |
+| Profile | ✅ Change-password (verifies current pw), delete-account (`delete_my_account` RPC), avatar upload (`avatars` storage bucket) all added; email edit now syncs via `auth.updateUser` (login email no longer desyncs) |
 | Borrow form | Return date free-text (no picker, no `return >= borrow` validation), borrow_date hardcoded to today, `borrow_items` loop swallows errors, no admin notification |
 | Faculty approvals | Deny uses `Alert.prompt` — **iOS-only, no-op on Android** (target platform) |
 | Faculty borrow/return | No per-item condition (good/damaged/lost), no partial returns, no damage-report creation |
@@ -152,14 +152,14 @@ Confirmed against `CAPSTONE-ALIGNMENT.md`. These remain open:
 15. ~~Add role checks to `/api/reports/*`~~ ✅ admin/staff guard
 
 ### Priority 4 — Completeness
-16. Wire orphan pages into nav
+16. ~~Wire orphan pages into nav~~ ✅ all four pages linked (Aug 14)
 17. PWA manifest/service worker
 18. QR code generation
 19. DB-backed settings
-20. Faculty approval notifications + mobile notification deep-links/Realtime
+20. 🟡 Faculty approval notifications ✅ (web+mobile, `create_borrow_notification` RPC); mobile deep-links still pending
 
 ### Priority 5 — Polish
 21. Fix 58 lint errors
 22. Date pickers + validation in borrow forms
 23. Replace `Alert.prompt` (iOS-only)
-24. Profile: change-password, delete-account, picture upload
+24. ~~Profile: change-password, delete-account, picture upload~~ ✅ done on mobile (student+faculty) + web faculty current-password check (Aug 14)

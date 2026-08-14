@@ -13,6 +13,7 @@ import {
   FlaskConical,
   ScrollText,
   Bell,
+  CalendarDays,
 } from "lucide-react";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 
@@ -74,6 +75,7 @@ export default function FacultyLayout({ children }: { children: React.ReactNode 
     { title: "Borrow Item", href: "/faculty/borrow", icon: HandHelping },
     { title: "Student Borrows", href: "/faculty/approvals", icon: GraduationCap },
     { title: "History", href: "/faculty/history", icon: ScrollText },
+    { title: "Schedule", href: "/faculty/schedule", icon: CalendarDays },
     { title: "Announcements", href: "/faculty/announcements", icon: Bell },
   ];
 

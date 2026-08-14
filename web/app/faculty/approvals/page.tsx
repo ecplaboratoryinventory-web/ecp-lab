@@ -202,6 +202,12 @@ export default function ApprovalsPage() {
         description: `${req.users?.full_name || "Student"}'s request has been approved`,
         type: "success",
       });
+      await supabase.rpc("create_borrow_notification", {
+        p_user_id: req.user_id,
+        p_title: "Borrow Request Approved",
+        p_message: "Your borrow request has been approved by faculty.",
+        p_reference_id: req.id,
+      });
     }
     setActionLoading(null);
     reload();
@@ -236,6 +242,12 @@ export default function ApprovalsPage() {
         title: "Denied",
         description: `${denyTarget.users?.full_name || "Student"}'s request has been denied`,
         type: "success",
+      });
+      await supabase.rpc("create_borrow_notification", {
+        p_user_id: denyTarget.user_id,
+        p_title: "Borrow Request Denied",
+        p_message: `Your borrow request was denied.${denyReason ? ` Reason: ${denyReason}` : ""}`,
+        p_reference_id: denyTarget.id,
       });
     }
     setActionLoading(null);

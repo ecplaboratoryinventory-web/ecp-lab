@@ -16,6 +16,9 @@ import {
   Megaphone,
   Settings,
   CalendarClock,
+  ClipboardList,
+  TriangleAlert,
+  Bell,
 } from "lucide-react";
 import { AdminHeader } from "@/components/admin/header";
 
@@ -28,6 +31,9 @@ const navigation = [
   { title: "Faculty", href: "/admin/faculty", icon: Users },
   { title: "Class Schedules", href: "/admin/class-schedules", icon: CalendarClock },
   { title: "Logs & Reports", href: "/admin/activity-logs", icon: ScrollText },
+  { title: "Reports", href: "/admin/reports", icon: ClipboardList },
+  { title: "Damage Reports", href: "/admin/damage-reports", icon: TriangleAlert },
+  { title: "Notifications", href: "/admin/notifications", icon: Bell },
   { title: "Maintenance", href: "/admin/maintenance", icon: Wrench },
   { title: "Announcements", href: "/admin/announcements", icon: Megaphone },
   { title: "Settings", href: "/admin/settings", icon: Settings },

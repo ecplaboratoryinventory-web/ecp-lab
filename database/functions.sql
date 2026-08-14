@@ -179,3 +179,73 @@ $$;
 
 GRANT EXECUTE ON FUNCTION complete_return(UUID) TO authenticated;
 REVOKE EXECUTE ON FUNCTION complete_return(UUID) FROM PUBLIC, anon;
+
+-- ============================================================================
+-- FUNCTION: create_borrow_notification(p_user_id, p_title, p_message, p_reference_id)
+-- Creates a borrow_status notification for a user (e.g. student) on behalf of
+-- faculty/admin/staff. Runs as owner so it bypasses the admin-only INSERT RLS;
+-- callers are restricted to faculty/admin/staff via is_faculty_or_admin().
+-- ============================================================================
+CREATE OR REPLACE FUNCTION create_borrow_notification(
+  p_user_id UUID,
+  p_title TEXT,
+  p_message TEXT,
+  p_reference_id UUID DEFAULT NULL
+) RETURNS VOID
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF NOT is_faculty_or_admin() THEN
+    RAISE EXCEPTION 'Not authorized';
+  END IF;
+
+  IF p_user_id IS NULL THEN
+    RAISE EXCEPTION 'User required';
+  END IF;
+
+  INSERT INTO notifications (user_id, title, message, type, reference_type, reference_id)
+  VALUES (p_user_id, btrim(p_title), btrim(p_message), 'borrow_status', 'borrow_request', p_reference_id);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION create_borrow_notification(UUID, TEXT, TEXT, UUID)
+  TO authenticated;
+REVOKE EXECUTE ON FUNCTION create_borrow_notification(UUID, TEXT, TEXT, UUID)
+  FROM PUBLIC, anon;
+
+-- ============================================================================
+-- FUNCTION: delete_my_account()
+-- Self-service account deletion for authenticated users. Deletes dependent
+-- rows (FKs are NOT NULL without CASCADE), the users row, and the auth
+-- identity in one transaction. Runs as owner (postgres).
+-- ============================================================================
+CREATE OR REPLACE FUNCTION delete_my_account()
+RETURNS VOID
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_uid UUID := auth.uid();
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
+
+  DELETE FROM borrow_items
+  WHERE borrow_request_id IN (SELECT id FROM borrow_requests WHERE user_id = v_uid);
+
+  DELETE FROM damage_reports WHERE user_id = v_uid;
+  DELETE FROM notifications WHERE user_id = v_uid;
+  DELETE FROM activity_logs WHERE user_id = v_uid;
+  DELETE FROM borrow_requests WHERE user_id = v_uid;
+  DELETE FROM class_schedules WHERE faculty_id = v_uid;
+
+  DELETE FROM users WHERE id = v_uid;
+
+  DELETE FROM auth.users WHERE id = v_uid;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION delete_my_account() TO authenticated;
+REVOKE EXECUTE ON FUNCTION delete_my_account() FROM PUBLIC, anon;

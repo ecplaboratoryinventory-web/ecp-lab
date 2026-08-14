@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Modal, TextInput } from "react-native";
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Modal, TextInput, Image } from "react-native";
+import * as ImagePicker from "expo-image-picker";
 import { supabase } from "@/lib/supabase";
+import { changePassword, uploadAvatar, deleteMyAccount } from "@/lib/profile";
 import { useRouter } from "expo-router";
 
 export default function ProfileScreen() {
@@ -11,6 +13,10 @@ export default function ProfileScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ firstname: "", lastname: "", email: "", course: "", section: "" });
+  const [pwModal, setPwModal] = useState(false);
+  const [pwSaving, setPwSaving] = useState(false);
+  const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     const fetch = async () => {
@@ -53,6 +59,7 @@ export default function ProfileScreen() {
     setSaving(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
+    const fullName = `${form.firstname} ${form.lastname}`.trim();
     const { error } = await supabase
       .from("users")
       .update({
@@ -61,17 +68,94 @@ export default function ProfileScreen() {
         email: form.email,
         course: form.course,
         section: form.section,
-        full_name: `${form.firstname} ${form.lastname}`.trim(),
+        full_name: fullName,
       })
       .eq("id", user.id);
     setSaving(false);
     if (error) {
       Alert.alert("Error", error.message);
-    } else {
-      setProfile({ ...profile, ...form, full_name: `${form.firstname} ${form.lastname}`.trim() });
-      setModalVisible(false);
-      Alert.alert("Success", "Profile updated successfully.");
+      return;
     }
+    if (form.email && form.email !== user.email) {
+      const { error: authError } = await supabase.auth.updateUser({ email: form.email });
+      if (authError) {
+        Alert.alert("Partial Update", `Profile saved, but email change requires confirmation: ${authError.message}`);
+        setProfile({ ...profile, ...form, full_name: fullName });
+        setModalVisible(false);
+        return;
+      }
+    }
+    setProfile({ ...profile, ...form, full_name: fullName });
+    setModalVisible(false);
+    Alert.alert("Success", "Profile updated successfully.");
+  };
+
+  const handleChangePassword = async () => {
+    if (!pwForm.current || !pwForm.next) {
+      Alert.alert("Error", "Please fill in all password fields.");
+      return;
+    }
+    if (pwForm.next !== pwForm.confirm) {
+      Alert.alert("Error", "New passwords do not match.");
+      return;
+    }
+    setPwSaving(true);
+    const err = await changePassword(pwForm.current, pwForm.next);
+    setPwSaving(false);
+    if (err) {
+      Alert.alert("Error", err);
+    } else {
+      Alert.alert("Success", "Password changed successfully.");
+      setPwForm({ current: "", next: "", confirm: "" });
+      setPwModal(false);
+    }
+  };
+
+  const handlePickAvatar = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("Permission Required", "Allow photo library access to upload a profile picture.");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
+    if (result.canceled || !result.assets?.length) return;
+
+    setUploading(true);
+    const url = await uploadAvatar(result.assets[0].uri, result.assets[0].mimeType);
+    setUploading(false);
+    if (url) {
+      setProfile((p: any) => ({ ...p, profile_picture_url: url }));
+      Alert.alert("Success", "Profile picture updated.");
+    } else {
+      Alert.alert("Error", "Failed to upload profile picture.");
+    }
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      "Delete Account",
+      "This will permanently delete your account and all your borrow records. This cannot be undone. Continue?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete My Account",
+          style: "destructive",
+          onPress: async () => {
+            const err = await deleteMyAccount();
+            if (err) {
+              Alert.alert("Error", err);
+            } else {
+              router.replace("/(auth)/login");
+            }
+          },
+        },
+      ],
+    );
   };
 
   const handleLogout = () => {
@@ -87,9 +171,19 @@ export default function ProfileScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{profile?.firstname?.charAt(0) || "S"}</Text>
-        </View>
+        <TouchableOpacity onPress={handlePickAvatar} disabled={uploading}>
+          {profile?.profile_picture_url ? (
+            <Image source={{ uri: profile.profile_picture_url }} style={styles.avatar} />
+          ) : (
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{profile?.firstname?.charAt(0) || "S"}</Text>
+            </View>
+          )}
+          {uploading && (
+            <ActivityIndicator style={styles.avatarSpinner} color="#fff" />
+          )}
+          <Text style={styles.changePhoto}>Change photo</Text>
+        </TouchableOpacity>
         <Text style={styles.name}>{profile?.firstname} {profile?.lastname}</Text>
         <Text style={styles.email}>{profile?.email}</Text>
         <TouchableOpacity style={styles.editBtn} onPress={openModal}>
@@ -139,6 +233,12 @@ export default function ProfileScreen() {
           </View>
         </View>
 
+        <TouchableOpacity style={styles.actionBtn} onPress={() => setPwModal(true)}>
+          <Text style={styles.actionBtnText}>Change Password</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.deleteBtn} onPress={handleDeleteAccount}>
+          <Text style={styles.deleteText}>Delete Account</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
           <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
@@ -176,6 +276,32 @@ export default function ProfileScreen() {
           </View>
         </View>
       </Modal>
+
+      <Modal visible={pwModal} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Change Password</Text>
+
+            <Text style={styles.inputLabel}>Current Password</Text>
+            <TextInput style={styles.input} value={pwForm.current} onChangeText={(t) => setPwForm({ ...pwForm, current: t })} placeholder="Current password" placeholderTextColor="#999" secureTextEntry />
+
+            <Text style={styles.inputLabel}>New Password</Text>
+            <TextInput style={styles.input} value={pwForm.next} onChangeText={(t) => setPwForm({ ...pwForm, next: t })} placeholder="At least 6 characters" placeholderTextColor="#999" secureTextEntry />
+
+            <Text style={styles.inputLabel}>Confirm New Password</Text>
+            <TextInput style={styles.input} value={pwForm.confirm} onChangeText={(t) => setPwForm({ ...pwForm, confirm: t })} placeholder="Repeat new password" placeholderTextColor="#999" secureTextEntry />
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => setPwModal(false)}>
+                <Text style={styles.cancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.saveBtn} onPress={handleChangePassword} disabled={pwSaving}>
+                <Text style={styles.saveBtnText}>{pwSaving ? "Saving..." : "Change Password"}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -185,6 +311,12 @@ const styles = StyleSheet.create({
   header: { backgroundColor: "#1A2980", paddingTop: 50, paddingBottom: 24, alignItems: "center" },
   avatar: { width: 90, height: 90, borderRadius: 45, backgroundColor: "#2196F3", justifyContent: "center", alignItems: "center", borderWidth: 3, borderColor: "#fff" },
   avatarText: { color: "#fff", fontSize: 36, fontWeight: "bold" },
+  avatarSpinner: { position: "absolute", top: 33, left: 33 },
+  changePhoto: { color: "#D0E8FF", fontSize: 12, marginTop: 6, textDecorationLine: "underline" },
+  actionBtn: { backgroundColor: "#1A2980", marginHorizontal: 16, marginTop: 8, height: 52, borderRadius: 14, justifyContent: "center", alignItems: "center" },
+  actionBtnText: { color: "#fff", fontSize: 15, fontWeight: "bold" },
+  deleteBtn: { backgroundColor: "#fff", marginHorizontal: 16, marginTop: 8, height: 52, borderRadius: 14, borderWidth: 1, borderColor: "#F44336", justifyContent: "center", alignItems: "center" },
+  deleteText: { color: "#F44336", fontSize: 15, fontWeight: "bold" },
   name: { color: "#fff", fontSize: 18, fontWeight: "bold", marginTop: 10 },
   email: { color: "#D0E8FF", fontSize: 13, marginTop: 2 },
   editBtn: { marginTop: 14, backgroundColor: "#0ea5a0", paddingHorizontal: 20, paddingVertical: 8, borderRadius: 20 },

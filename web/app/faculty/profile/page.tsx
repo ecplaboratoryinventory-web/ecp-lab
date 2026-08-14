@@ -267,6 +267,20 @@ export default function FacultyProfilePage() {
 
     setPasswordSaving(true);
 
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: profile?.email ?? "",
+      password: passwordForm.current,
+    });
+    if (signInError) {
+      toast.add({
+        title: "Error",
+        description: "Current password is incorrect.",
+        type: "error",
+      });
+      setPasswordSaving(false);
+      return;
+    }
+
     const { error } = await supabase.auth.updateUser({
       password: passwordForm.new,
     });

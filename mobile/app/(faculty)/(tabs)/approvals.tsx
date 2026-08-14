@@ -46,13 +46,31 @@ export default function FacultyApprovalsScreen() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
+    const req = requests.find((r) => r.id === id);
     if (action === "approved") {
       await supabase.from("borrow_requests").update({ status: "approved", approved_by: user.id, approved_at: new Date().toISOString() }).eq("id", id);
+      if (req) {
+        await supabase.rpc("create_borrow_notification", {
+          p_user_id: req.user_id,
+          p_title: "Borrow Request Approved",
+          p_message: "Your borrow request has been approved by faculty.",
+          p_reference_id: id,
+        });
+      }
     } else {
       Alert.prompt("Denial Reason", "Enter reason:", async (reason) => {
         await supabase.from("borrow_requests").update({ status: "denied", denied_reason: reason || "No reason given" }).eq("id", id);
+        if (req) {
+          await supabase.rpc("create_borrow_notification", {
+            p_user_id: req.user_id,
+            p_title: "Borrow Request Denied",
+            p_message: `Your borrow request was denied.${reason ? ` Reason: ${reason}` : ""}`,
+            p_reference_id: id,
+          });
+        }
         setRequests((prev) => prev.filter((r) => r.id !== id));
       });
+      return;
     }
     setRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status: action } : r)));
     setActing(null);
