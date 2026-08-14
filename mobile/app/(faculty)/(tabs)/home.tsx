@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
-import { View, Text, ScrollView, StyleSheet, ActivityIndicator, Animated } from "react-native";
+import { View, Text, ScrollView, StyleSheet, ActivityIndicator, Animated, TouchableOpacity } from "react-native";
 import { supabase } from "@/lib/supabase";
+import { useRouter } from "expo-router";
 
 function SkeletonBlock({ style }: { style: any }) {
   const opacity = useRef(new Animated.Value(0.3)).current;
@@ -18,6 +19,7 @@ function SkeletonBlock({ style }: { style: any }) {
 }
 
 export default function FacultyHomeScreen() {
+  const router = useRouter();
   const [name, setName] = useState("");
   const [stats, setStats] = useState({ total: 0, available: 0, active: 0, pending: 0 });
   const [dept, setDept] = useState("");
@@ -98,6 +100,13 @@ export default function FacultyHomeScreen() {
             Monitor equipment availability, approve student borrowing requests, and track laboratory inventory from your mobile device.
           </Text>
         </View>
+
+        <TouchableOpacity style={styles.card} onPress={() => router.push("/(faculty)/(tabs)/schedule")}>
+          <Text style={styles.cardTitle}>📅 My Class Schedule</Text>
+          <Text style={styles.cardText}>
+            View your laboratory classes, rooms, and time slots for this semester.
+          </Text>
+        </TouchableOpacity>
       </ScrollView>
     </View>
   );

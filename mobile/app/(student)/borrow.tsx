@@ -23,7 +23,7 @@ function SkeletonBlock({ style }: { style: any }) {
 
 interface Equipment {
   id: string; name: string; available_quantity: number; category_id: string;
-  status: string; department: string;
+  status: string; department: string; subject_tags: string[] | null;
   categories?: { name: string };
 }
 
@@ -40,9 +40,20 @@ export default function BorrowScreen() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [enrolledSubjects, setEnrolledSubjects] = useState<string[]>([]);
+  const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
 
   useEffect(() => {
     const fetch = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from("users")
+          .select("enrolled_subjects")
+          .eq("id", user.id)
+          .single();
+        setEnrolledSubjects(profile?.enrolled_subjects || []);
+      }
       const { data } = await supabase.from("equipment").select("*, categories(name)").order("name");
       setEquipment(data || []);
       setFiltered(data || []);
@@ -57,8 +68,13 @@ export default function BorrowScreen() {
     if (selectedCategory) {
       result = result.filter((e) => (e.categories?.name || "").toLowerCase() === selectedCategory.toLowerCase());
     }
+    if (selectedSubject) {
+      result = result.filter((e) =>
+        (e.subject_tags || []).some((t) => t.toLowerCase() === selectedSubject.toLowerCase())
+      );
+    }
     setFiltered(result);
-  }, [search, selectedCategory, equipment]);
+  }, [search, selectedCategory, selectedSubject, equipment]);
 
   const toggleSelect = (id: string) => {
     setSelected((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
@@ -163,6 +179,23 @@ export default function BorrowScreen() {
               );
             })}
           </ScrollView>
+
+          {enrolledSubjects.length > 0 && (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.subjectRow} contentContainerStyle={styles.chipRowContent}>
+              {["All Subjects", ...enrolledSubjects].map((sub) => {
+                const isActive = (sub === "All Subjects" && selectedSubject === null) || sub === selectedSubject;
+                return (
+                  <TouchableOpacity
+                    key={sub}
+                    style={[styles.chip, isActive ? styles.chipActive : styles.chipInactive]}
+                    onPress={() => setSelectedSubject(sub === "All Subjects" ? null : sub)}
+                  >
+                    <Text style={[styles.chipText, isActive ? styles.chipTextActive : styles.chipTextInactive]}>{sub}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          )}
 
           {selected.length > 0 && (
             <View style={styles.selectBar}>
@@ -299,6 +332,7 @@ const styles = StyleSheet.create({
   submitBtn: { backgroundColor: "#2196F3", height: 52, borderRadius: 12, justifyContent: "center", alignItems: "center", marginTop: 20 },
   submitText: { color: "#fff", fontSize: 15, fontWeight: "bold" },
   chipRow: { maxHeight: 48 },
+  subjectRow: { maxHeight: 48, marginTop: 8 },
   chipRowContent: { paddingHorizontal: 12, gap: 8, alignItems: "center" },
   chip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 },
   chipActive: { backgroundColor: "#1A2980" },

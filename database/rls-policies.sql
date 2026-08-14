@@ -20,29 +20,47 @@ ALTER TABLE maintenance ENABLE ROW LEVEL SECURITY;
 -- Helper function: check if current user has a specific role
 -- ============================================================================
 CREATE OR REPLACE FUNCTION auth_user_role()
-RETURNS TEXT AS $$
+RETURNS TEXT AS $fn$
   SELECT role FROM users WHERE id = auth.uid();
-$$ LANGUAGE sql STABLE SECURITY DEFINER;
+$fn$ LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = public;
 
 CREATE OR REPLACE FUNCTION is_admin()
-RETURNS BOOLEAN AS $$
+RETURNS BOOLEAN AS $fn$
   SELECT EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'admin');
-$$ LANGUAGE sql STABLE SECURITY DEFINER;
+$fn$ LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = public;
 
 CREATE OR REPLACE FUNCTION is_admin_or_staff()
-RETURNS BOOLEAN AS $$
+RETURNS BOOLEAN AS $fn$
   SELECT EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role IN ('admin', 'staff'));
-$$ LANGUAGE sql STABLE SECURITY DEFINER;
+$fn$ LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = public;
 
 CREATE OR REPLACE FUNCTION is_faculty()
-RETURNS BOOLEAN AS $$
+RETURNS BOOLEAN AS $fn$
   SELECT EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'faculty');
-$$ LANGUAGE sql STABLE SECURITY DEFINER;
+$fn$ LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = public;
 
 CREATE OR REPLACE FUNCTION is_faculty_or_admin()
-RETURNS BOOLEAN AS $$
+RETURNS BOOLEAN AS $fn$
   SELECT EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role IN ('admin', 'staff', 'faculty'));
-$$ LANGUAGE sql STABLE SECURITY DEFINER;
+$fn$ LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = public;
+
+-- Helper functions are referenced by RLS policies evaluated for every role,
+-- so keep EXECUTE granted to anon + authenticated (they only return role checks).
+REVOKE EXECUTE ON FUNCTION auth_user_role() FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION is_admin() FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION is_admin_or_staff() FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION is_faculty() FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION is_faculty_or_admin() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION auth_user_role() TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION is_admin() TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION is_admin_or_staff() TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION is_faculty() TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION is_faculty_or_admin() TO anon, authenticated;
 
 -- ============================================================================
 -- USERS
@@ -124,7 +142,14 @@ CREATE POLICY "Faculty and admin read all borrow requests" ON borrow_requests
   FOR SELECT USING (is_faculty_or_admin());
 
 CREATE POLICY "Users create borrow requests" ON borrow_requests
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
+  FOR INSERT WITH CHECK (
+    auth.uid() = user_id
+    AND (
+      (request_type = 'student' AND status = 'pending')
+      OR (request_type = 'faculty' AND status IN ('pending', 'approved') AND is_faculty())
+      OR is_admin_or_staff()
+    )
+  );
 
 CREATE POLICY "Admin update borrow requests" ON borrow_requests
   FOR UPDATE USING (is_admin_or_staff());
@@ -181,6 +206,9 @@ CREATE POLICY "Users read own damage reports" ON damage_reports
 CREATE POLICY "Admin read all damage reports" ON damage_reports
   FOR SELECT USING (is_admin_or_staff());
 
+CREATE POLICY "Admin insert damage reports" ON damage_reports
+  FOR INSERT WITH CHECK (is_admin_or_staff());
+
 CREATE POLICY "Users create damage reports" ON damage_reports
   FOR INSERT WITH CHECK (auth.uid() = user_id);
 
@@ -212,7 +240,7 @@ CREATE POLICY "Admin read activity logs" ON activity_logs
   FOR SELECT USING (is_admin_or_staff());
 
 CREATE POLICY "System insert activity logs" ON activity_logs
-  FOR INSERT WITH CHECK (true);
+  FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
 
 -- ============================================================================
 -- ANNOUNCEMENTS

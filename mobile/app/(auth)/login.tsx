@@ -18,8 +18,9 @@ export default function LoginScreen() {
       return;
     }
     setLoading(true);
-    const { data: profile } = await supabase.from("users").select("id, email, role").eq("id_no", studentNumber).in("role", ["student", "faculty"]).single();
-    if (!profile) {
+    const { data } = await supabase.rpc("lookup_login", { identifier: studentNumber });
+    const profile = Array.isArray(data) ? data[0] : data;
+    if (!profile?.email || !profile?.role) {
       Alert.alert("Login Failed", "Account not found. Check your ID.");
       setLoading(false);
       return;

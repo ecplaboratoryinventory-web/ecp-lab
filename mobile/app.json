@@ -2,14 +2,22 @@
   "expo": {
     "name": "ECP Lab",
     "slug": "ecp-lab",
+    "scheme": "ecplab",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "extra": {
+      "eas": {
+        "projectId": "00000000-0000-0000-0000-000000000000"
+      }
+    },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.ecplab.inventory"
     },
     "android": {
+      "package": "com.ecplab.inventory",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -24,7 +32,14 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
-      "expo-status-bar"
+      "expo-status-bar",
+      [
+        "expo-notifications",
+        {
+          "color": "#0ea5a0",
+          "defaultChannel": "default"
+        }
+      ]
     ]
   }
 }

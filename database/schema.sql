@@ -20,8 +20,12 @@ CREATE TABLE users (
   department TEXT,
   course TEXT,
   section TEXT,
+  enrolled_subjects TEXT[] DEFAULT '{}',
   profile_picture_url TEXT,
   push_token TEXT,
+  reset_token TEXT,
+  reset_token_expires TIMESTAMPTZ,
+  reset_code TEXT,
   notification_preferences JSONB DEFAULT '{"borrow_status": true, "announcements": true, "overdue_reminders": true}'::jsonb,
   status TEXT DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
   approved BOOLEAN DEFAULT false,
@@ -66,6 +70,8 @@ CREATE TABLE equipment (
   quantity INTEGER DEFAULT 0,
   available_quantity INTEGER DEFAULT 0,
   location TEXT,
+  department TEXT,
+  subject_tags TEXT[] DEFAULT '{}',
   image_url TEXT,
   status TEXT DEFAULT 'available' CHECK (status IN ('available', 'borrowed', 'under_maintenance', 'needs_replacement')),
   condition TEXT DEFAULT 'good' CHECK (condition IN ('good', 'fair', 'poor', 'needs_replacement')),
@@ -227,12 +233,16 @@ CREATE TABLE maintenance (
 -- TRIGGERS: auto-update updated_at
 -- ============================================================================
 CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER AS $fn$
 BEGIN
   NEW.updated_at = now();
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$fn$ LANGUAGE plpgsql
+SET search_path = public;
+
+-- Trigger-only function: revoke direct RPC execution (runs as table owner via trigger)
+REVOKE EXECUTE ON FUNCTION update_updated_at_column() FROM PUBLIC, anon, authenticated;
 
 CREATE TRIGGER set_users_updated_at BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER set_equipment_updated_at BEFORE UPDATE ON equipment FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -260,3 +270,21 @@ CREATE INDEX idx_damage_reports_status ON damage_reports(status);
 CREATE INDEX idx_maintenance_status ON maintenance(status);
 CREATE INDEX idx_announcements_active ON announcements(is_active);
 CREATE INDEX idx_class_schedules_faculty ON class_schedules(faculty_id);
+
+-- ============================================================================
+-- INDEXES for unindexed foreign keys (performance advisor)
+-- ============================================================================
+CREATE INDEX idx_alerts_created_by ON alerts(created_by);
+CREATE INDEX idx_announcements_author_id ON announcements(author_id);
+CREATE INDEX idx_borrow_items_equipment_id ON borrow_items(equipment_id);
+CREATE INDEX idx_borrow_requests_approved_by ON borrow_requests(approved_by);
+CREATE INDEX idx_borrow_requests_class_schedule ON borrow_requests(class_schedule_id);
+CREATE INDEX idx_damage_reports_borrow_request_id ON damage_reports(borrow_request_id);
+CREATE INDEX idx_damage_reports_equipment_id ON damage_reports(equipment_id);
+CREATE INDEX idx_damage_reports_resolved_by ON damage_reports(resolved_by);
+CREATE INDEX idx_damage_reports_user_id ON damage_reports(user_id);
+CREATE INDEX idx_equipment_subcategory_id ON equipment(subcategory_id);
+CREATE INDEX idx_maintenance_created_by ON maintenance(created_by);
+CREATE INDEX idx_maintenance_equipment_id ON maintenance(equipment_id);
+CREATE INDEX idx_subcategories_category_id ON subcategories(category_id);
+CREATE INDEX idx_users_approved_by ON users(approved_by);

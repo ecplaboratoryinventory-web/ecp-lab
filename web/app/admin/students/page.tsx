@@ -45,6 +45,7 @@ interface Student {
   id_no: string | null;
   course: string | null;
   section: string | null;
+  enrolled_subjects: string[];
   status: string;
   approved: boolean;
   created_at: string;
@@ -97,6 +98,7 @@ export default function StudentsPage() {
     email: "",
     course: "",
     section: "",
+    enrolled_subjects: "",
     password: "",
   });
 
@@ -161,7 +163,7 @@ export default function StudentsPage() {
 
   const openCreate = () => {
     setEditingId(null);
-    setForm({ firstname: "", lastname: "", middlename: "", id_no: "", email: "", course: "", section: "", password: "" });
+    setForm({ firstname: "", lastname: "", middlename: "", id_no: "", email: "", course: "", section: "", enrolled_subjects: "", password: "" });
     setModalOpen(true);
   };
 
@@ -175,6 +177,7 @@ export default function StudentsPage() {
       email: s.email || "",
       course: s.course || "",
       section: s.section || "",
+      enrolled_subjects: (s.enrolled_subjects || []).join(", "),
       password: "",
     });
     setModalOpen(true);
@@ -219,6 +222,9 @@ export default function StudentsPage() {
       email: form.email.trim(),
       course: form.course || null,
       section: form.section.trim() || null,
+      enrolled_subjects: form.enrolled_subjects
+        ? form.enrolled_subjects.split(",").map((s) => s.trim()).filter(Boolean)
+        : [],
     };
 
     if (editingId) {
@@ -457,6 +463,7 @@ export default function StudentsPage() {
                 <th className="px-4 py-3">Full Name</th>
                 <th className="px-4 py-3">Course</th>
                 <th className="px-4 py-3">Section</th>
+                <th className="px-4 py-3">Enrolled Subjects</th>
                 <th className="px-4 py-3">Email</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3 text-right">Actions</th>
@@ -482,6 +489,9 @@ export default function StudentsPage() {
                       <Skeleton className="h-4 w-36" />
                     </td>
                     <td className="px-4 py-3">
+                      <Skeleton className="h-4 w-36" />
+                    </td>
+                    <td className="px-4 py-3">
                       <Skeleton className="h-5 w-16 rounded-full" />
                     </td>
                     <td className="px-4 py-3">
@@ -494,7 +504,7 @@ export default function StudentsPage() {
                 ))
               ) : students.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-silver">
+                  <td colSpan={8} className="px-4 py-12 text-center text-silver">
                     No students found
                   </td>
                 </tr>
@@ -507,6 +517,11 @@ export default function StudentsPage() {
                     </td>
                     <td className="px-4 py-3 text-silver">{s.course || "-"}</td>
                     <td className="px-4 py-3 text-silver">{s.section || "-"}</td>
+                    <td className="px-4 py-3 text-silver">
+                      {(s.enrolled_subjects && s.enrolled_subjects.length > 0)
+                        ? s.enrolled_subjects.join(", ")
+                        : "-"}
+                    </td>
                     <td className="px-4 py-3 text-silver">{s.email}</td>
                     <td className="px-4 py-3">
                       <span
@@ -611,6 +626,15 @@ export default function StudentsPage() {
                 onChange={(e) => setForm({ ...form, section: e.target.value })}
                 className="mt-1 border-[#dde4ec]"
                 placeholder="Section"
+              />
+            </div>
+            <div className="col-span-2">
+              <label className="text-xs font-medium text-slate">Enrolled Subjects (comma-separated)</label>
+              <Input
+                value={form.enrolled_subjects}
+                onChange={(e) => setForm({ ...form, enrolled_subjects: e.target.value })}
+                className="mt-1 border-[#dde4ec]"
+                placeholder="e.g., BSCpE, STEM, Chemistry, Physics"
               />
             </div>
             <div className="col-span-2">

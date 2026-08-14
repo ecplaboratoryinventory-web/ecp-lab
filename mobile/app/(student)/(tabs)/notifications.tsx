@@ -31,6 +31,28 @@ export default function NotificationsScreen() {
 
   useEffect(() => {
     fetchData().finally(() => setLoading(false));
+
+    let channel: any;
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      channel = supabase
+        .channel(`student-notifications-${user.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "notifications",
+            filter: `user_id=eq.${user.id}`,
+          },
+          () => fetchData()
+        )
+        .subscribe();
+    });
+
+    return () => {
+      if (channel) supabase.removeChannel(channel);
+    };
   }, []);
 
   const handleRefresh = async () => {
@@ -42,6 +64,13 @@ export default function NotificationsScreen() {
   const markRead = async (id: string) => {
     await supabase.from("notifications").update({ is_read: true }).eq("id", id);
     setNotifs((prev) => prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)));
+  };
+
+  const markAllRead = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    await supabase.from("notifications").update({ is_read: true }).eq("user_id", user.id).eq("is_read", false);
+    setNotifs((prev) => prev.map((n) => ({ ...n, is_read: true })));
   };
 
   const getIcon = (item: any) => {
@@ -61,6 +90,11 @@ export default function NotificationsScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Notifications</Text>
+        {notifs.length > 0 && (
+          <TouchableOpacity onPress={markAllRead}>
+            <Text style={styles.markAll}>Mark all as read</Text>
+          </TouchableOpacity>
+        )}
       </View>
       {loading ? (
         <View style={{ padding: 8 }}>
@@ -107,8 +141,9 @@ export default function NotificationsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F4F7FC" },
-  header: { backgroundColor: "#fff", padding: 20, paddingTop: 50, elevation: 2 },
+  header: { backgroundColor: "#fff", padding: 20, paddingTop: 50, elevation: 2, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   title: { fontSize: 22, fontWeight: "bold", color: "#1A1A2E" },
+  markAll: { fontSize: 13, color: "#2196F3", fontWeight: "600" },
   empty: { flex: 1, justifyContent: "center", alignItems: "center" },
   emptyText: { fontSize: 16, color: "#95A5A6", marginTop: 8 },
   card: {

@@ -2,6 +2,7 @@ import { Stack } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { View, StyleSheet, Animated } from "react-native";
 import { supabase } from "@/lib/supabase";
+import { registerPushToken } from "@/lib/push";
 import { useRouter } from "expo-router";
 
 export default function RootLayout() {
@@ -53,6 +54,7 @@ export default function RootLayout() {
     } else {
       router.replace("/(auth)/login");
     }
+    registerPushToken();
   };
 
   if (loading) {

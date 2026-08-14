@@ -179,6 +179,22 @@ export default function RequestDetailScreen() {
           </View>
         )}
 
+        {/* Return (when active) */}
+        {(request.status === "borrowed" || request.status === "approved") && (
+          <View style={styles.returnCard}>
+            <Text style={styles.returnTitle}>📦 Return Equipment</Text>
+            <Text style={styles.returnHint}>
+              {request.status === "borrowed" ? "Done using these items? Return them now." : "Items are ready for pickup. Return them after use."}
+            </Text>
+            <TouchableOpacity
+              style={styles.returnBtn}
+              onPress={() => router.push("/(student)/return")}
+            >
+              <Text style={styles.returnBtnText}>Return Items</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {isDenied && request.denied_reason && (
           <View style={styles.deniedCard}>
             <Text style={styles.deniedTitle}>Reason for Denial</Text>
@@ -221,4 +237,9 @@ const styles = StyleSheet.create({
   deniedCard: { margin: 16, backgroundColor: "#FFF5F5", borderRadius: 14, padding: 16, borderLeftWidth: 4, borderLeftColor: "#E74C3C" },
   deniedTitle: { fontSize: 14, fontWeight: "bold", color: "#C62828" },
   deniedText: { fontSize: 13, color: "#555", marginTop: 4 },
+  returnCard: { margin: 16, backgroundColor: "#E6FFFA", borderRadius: 14, padding: 16, borderLeftWidth: 4, borderLeftColor: "#0ea5a0" },
+  returnTitle: { fontSize: 14, fontWeight: "bold", color: "#0f766e" },
+  returnHint: { fontSize: 12, color: "#64748B", marginTop: 4 },
+  returnBtn: { marginTop: 12, backgroundColor: "#0ea5a0", height: 46, borderRadius: 10, justifyContent: "center", alignItems: "center" },
+  returnBtnText: { color: "#fff", fontSize: 14, fontWeight: "bold" },
 });

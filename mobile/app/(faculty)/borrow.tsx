@@ -49,26 +49,22 @@ export default function FacultyBorrowScreen() {
   const handleSubmit = async () => {
     if (!purpose) { Alert.alert("Error", "Please enter a purpose"); return; }
     setSubmitting(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
 
-    const { data: req, error } = await supabase.from("borrow_requests").insert({
-      user_id: user.id, request_type: "faculty", status: "approved",
-      purpose, borrow_date: new Date().toISOString().split("T")[0],
-      approved_at: new Date().toISOString(),
-    }).select("id").single();
+    const items = selectedItems.map((item) => ({
+      equipment_id: item.id,
+      quantity: quantities[item.id] || 1,
+    }));
 
-    if (error || !req) { Alert.alert("Error", error?.message); setSubmitting(false); return; }
+    const { error } = await supabase.rpc("submit_faculty_borrow", {
+      p_items: items,
+      p_purpose: purpose,
+      p_borrow_date: new Date().toISOString().split("T")[0],
+      p_return_date: null,
+      p_notes: null,
+      p_class_schedule_id: null,
+    });
 
-    for (const item of selectedItems) {
-      const qty = quantities[item.id] || 1;
-      await supabase.from("borrow_items").insert({
-        borrow_request_id: req.id, equipment_id: item.id, quantity: qty,
-      });
-      await supabase.from("equipment").update({
-        available_quantity: Math.max(0, item.available_quantity - qty),
-      }).eq("id", item.id);
-    }
+    if (error) { Alert.alert("Error", error.message); setSubmitting(false); return; }
 
     setSubmitting(false);
     Alert.alert("Success", "Equipment borrowed successfully!", [

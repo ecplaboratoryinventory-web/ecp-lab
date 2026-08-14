@@ -15,7 +15,8 @@
     "build:mobile": "npm run build -w mobile",
     "lint": "npm run lint -w web",
     "migrate": "node scripts/migrate-data.mjs",
-    "seed": "node scripts/seed-demo.mjs"
+    "seed": "node scripts/seed-demo.mjs",
+    "debug:bridge": "node debug_bridge.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.8",
@@ -24,5 +25,8 @@
     "mammoth": "^1.12.0",
     "mysql2": "^3.23.1",
     "pdf-parse": "^2.4.5"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1"
   }
 }

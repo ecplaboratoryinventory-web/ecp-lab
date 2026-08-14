@@ -30,6 +30,28 @@ export default function FacultyNotificationsScreen() {
       setLoading(false);
     };
     fetch();
+
+    let channel: any;
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      channel = supabase
+        .channel(`faculty-notifications-${user.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "notifications",
+            filter: `role=eq.faculty`,
+          },
+          () => fetch()
+        )
+        .subscribe();
+    });
+
+    return () => {
+      if (channel) supabase.removeChannel(channel);
+    };
   }, []);
 
   const getIcon = (item: any) => {

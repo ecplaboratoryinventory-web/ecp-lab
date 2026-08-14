@@ -16,7 +16,7 @@ interface BorrowRequest {
   borrow_items: BorrowItem[];
 }
 
-export default function FacultyReturnScreen() {
+export default function StudentReturnScreen() {
   const router = useRouter();
   const [requests, setRequests] = useState<BorrowRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,7 +30,7 @@ export default function FacultyReturnScreen() {
       .from("borrow_requests")
       .select("id, borrow_date, purpose, borrow_items(id, quantity, returned_quantity, equipment(id, name, available_quantity))")
       .eq("user_id", user.id)
-      .eq("request_type", "faculty")
+      .eq("request_type", "student")
       .in("status", ["approved", "borrowed"])
       .order("borrow_date", { ascending: false });
 
@@ -52,7 +52,7 @@ export default function FacultyReturnScreen() {
   const handleReturn = (req: BorrowRequest) => {
     const itemList = req.borrow_items
       .filter((bi) => bi.returned_quantity < bi.quantity)
-      .map((bi) => `  • ${bi.equipment.name} (${bi.quantity - bi.returned_quantity} to return)`)
+      .map((bi) => `  • ${bi.equipment?.name || "Item"} (${bi.quantity - bi.returned_quantity} to return)`)
       .join("\n");
 
     Alert.alert(
@@ -94,7 +94,7 @@ export default function FacultyReturnScreen() {
           <Text style={styles.backBtn}>← Back</Text>
         </TouchableOpacity>
         <Text style={styles.title}>Return Equipment</Text>
-        <Text style={styles.hint}>Tap an item to return</Text>
+        <Text style={styles.hint}>Tap a request to return its items</Text>
       </View>
 
       {returning && (
@@ -116,7 +116,7 @@ export default function FacultyReturnScreen() {
             {req.borrow_items.map((bi) => (
               <View key={bi.id} style={styles.equipmentRow}>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.equipmentName}>{bi.equipment.name}</Text>
+                  <Text style={styles.equipmentName}>{bi.equipment?.name || "Item"}</Text>
                   <Text style={styles.equipmentQty}>
                     Qty: {bi.quantity} / Returning: {bi.quantity - bi.returned_quantity}
                   </Text>
