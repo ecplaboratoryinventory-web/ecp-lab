@@ -74,8 +74,8 @@ BEGIN
 
   FOR v_item IN SELECT value FROM jsonb_array_elements(p_items)
   LOOP
-    v_eq_id := (v_item.value->>'equipment_id')::UUID;
-    v_qty := COALESCE((v_item.value->>'quantity')::INTEGER, 1);
+    v_eq_id := (v_item->>'equipment_id')::UUID;
+    v_qty := COALESCE((v_item->>'quantity')::INTEGER, 1);
     IF v_qty < 1 THEN
       RAISE EXCEPTION 'Quantity must be at least 1';
     END IF;
@@ -93,7 +93,7 @@ BEGIN
     INSERT INTO borrow_items
       (borrow_request_id, equipment_id, quantity, returned_quantity, notes)
     VALUES
-      (v_request_id, v_eq_id, v_qty, 0, v_item.value->>'notes');
+      (v_request_id, v_eq_id, v_qty, 0, v_item->>'notes');
 
     UPDATE equipment
     SET available_quantity = available_quantity - v_qty,
@@ -249,3 +249,98 @@ $$;
 
 GRANT EXECUTE ON FUNCTION delete_my_account() TO authenticated;
 REVOKE EXECUTE ON FUNCTION delete_my_account() FROM PUBLIC, anon;
+
+-- ============================================================================
+-- FUNCTION: submit_student_borrow(p_items, p_purpose, p_return_date)
+-- Creates a student borrow request with items in one transaction, enforcing
+-- server-side settings (max items + max borrow duration) and stock limits.
+-- ============================================================================
+CREATE OR REPLACE FUNCTION submit_student_borrow(
+  p_items JSONB,
+  p_purpose TEXT,
+  p_return_date DATE
+) RETURNS UUID
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_request_id UUID;
+  v_item JSONB;
+  v_eq_id UUID;
+  v_qty INTEGER;
+  v_avail INTEGER;
+  v_borrow_date DATE := current_date;
+  v_max_items INTEGER;
+  v_max_duration INTEGER;
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
+
+  SELECT max_items_per_borrow, borrow_duration_limit
+  INTO v_max_items, v_max_duration
+  FROM system_settings WHERE id = 1;
+
+  v_max_items := COALESCE(v_max_items, 5);
+  v_max_duration := COALESCE(v_max_duration, 7);
+
+  IF p_items IS NULL OR jsonb_array_length(p_items) = 0 THEN
+    RAISE EXCEPTION 'Select at least one item';
+  END IF;
+
+  IF jsonb_array_length(p_items) > v_max_items THEN
+    RAISE EXCEPTION 'You can borrow at most % items per request', v_max_items;
+  END IF;
+
+  IF p_purpose IS NULL OR btrim(p_purpose) = '' THEN
+    RAISE EXCEPTION 'Purpose is required';
+  END IF;
+
+  IF p_return_date IS NULL THEN
+    RAISE EXCEPTION 'Return date is required';
+  END IF;
+
+  IF p_return_date < v_borrow_date THEN
+    RAISE EXCEPTION 'Return date cannot be before the borrow date';
+  END IF;
+
+  IF (p_return_date - v_borrow_date) > v_max_duration THEN
+    RAISE EXCEPTION 'Return date cannot exceed % days from the borrow date', v_max_duration;
+  END IF;
+
+  INSERT INTO borrow_requests
+    (user_id, request_type, status, purpose, borrow_date, return_date)
+  VALUES
+    (auth.uid(), 'student', 'pending', btrim(p_purpose), v_borrow_date, p_return_date)
+  RETURNING id INTO v_request_id;
+
+  FOR v_item IN SELECT value FROM jsonb_array_elements(p_items)
+  LOOP
+    v_eq_id := (v_item->>'equipment_id')::UUID;
+    v_qty := COALESCE((v_item->>'quantity')::INTEGER, 1);
+    IF v_qty < 1 THEN
+      RAISE EXCEPTION 'Quantity must be at least 1';
+    END IF;
+
+    SELECT available_quantity INTO v_avail
+    FROM equipment WHERE id = v_eq_id;
+
+    IF v_avail IS NULL THEN
+      RAISE EXCEPTION 'Equipment not found';
+    END IF;
+    IF v_avail < v_qty THEN
+      RAISE EXCEPTION 'Insufficient stock (% available) for this item', v_avail;
+    END IF;
+
+    INSERT INTO borrow_items
+      (borrow_request_id, equipment_id, quantity, returned_quantity, notes)
+    VALUES
+      (v_request_id, v_eq_id, v_qty, 0, v_item->>'notes');
+  END LOOP;
+
+  RETURN v_request_id;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION submit_student_borrow(JSONB, TEXT, DATE) TO authenticated;
+REVOKE EXECUTE ON FUNCTION submit_student_borrow(JSONB, TEXT, DATE) FROM PUBLIC, anon;

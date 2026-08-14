@@ -1,8 +1,9 @@
 import { useEffect, useState, useRef } from "react";
 import {
   View, Text, FlatList, StyleSheet, TouchableOpacity,
-  TextInput, Alert, ActivityIndicator, ScrollView, Animated,
+  TextInput, Alert, ActivityIndicator, ScrollView, Animated, Platform,
 } from "react-native";
+import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "expo-router";
 
@@ -42,6 +43,12 @@ export default function BorrowScreen() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [enrolledSubjects, setEnrolledSubjects] = useState<string[]>([]);
   const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [minReturnDate, setMinReturnDate] = useState<Date>(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  });
 
   useEffect(() => {
     const fetch = async () => {
@@ -94,27 +101,38 @@ export default function BorrowScreen() {
   const handleSubmit = async () => {
     if (!purpose || !returnDate) { Alert.alert("Error", "Fill in purpose and return date"); return; }
     setSubmitting(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
 
-    const { data: req, error } = await supabase.from("borrow_requests").insert({
-      user_id: user.id, request_type: "student", status: "pending",
-      purpose, return_date: returnDate, borrow_date: new Date().toISOString().split("T")[0],
-    }).select("id").single();
+    const items = selectedItems.map((item) => ({
+      equipment_id: item.id,
+      quantity: quantities[item.id] || 1,
+    }));
 
-    if (error || !req) { Alert.alert("Error", error?.message); setSubmitting(false); return; }
-
-    for (const item of selectedItems) {
-      await supabase.from("borrow_items").insert({
-        borrow_request_id: req.id, equipment_id: item.id,
-        quantity: quantities[item.id] || 1,
-      });
-    }
+    const { data, error } = await supabase.rpc("submit_student_borrow", {
+      p_items: items,
+      p_purpose: purpose,
+      p_return_date: returnDate,
+    });
 
     setSubmitting(false);
+    if (error) {
+      Alert.alert("Error", error.message);
+      return;
+    }
+    if (!data) {
+      Alert.alert("Error", "Failed to submit borrow request.");
+      return;
+    }
     Alert.alert("Success", "Borrow request submitted!", [
       { text: "OK", onPress: () => router.replace("/(student)/(tabs)/requests") },
     ]);
+  };
+
+  const onChangeDate = (event: DateTimePickerEvent, selectedDate?: Date) => {
+    if (Platform.OS === "android") setShowDatePicker(false);
+    if (event.type === "dismissed" || !selectedDate) return;
+    const iso = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, "0")}-${String(selectedDate.getDate()).padStart(2, "0")}`;
+    setReturnDate(iso);
+    setMinReturnDate(selectedDate);
   };
 
   if (loading) return (
@@ -283,7 +301,20 @@ export default function BorrowScreen() {
             <TextInput style={styles.formInput} placeholder="Briefly describe purpose..." value={purpose} onChangeText={setPurpose} multiline />
 
             <Text style={styles.formLabel}>Return Date *</Text>
-            <TextInput style={styles.formInput} placeholder="YYYY-MM-DD" value={returnDate} onChangeText={setReturnDate} />
+            <TouchableOpacity style={styles.formInput} onPress={() => setShowDatePicker(true)}>
+              <Text style={{ fontSize: 15, color: returnDate ? "#222" : "#999" }}>
+                {returnDate || "Tap to pick a date"}
+              </Text>
+            </TouchableOpacity>
+            {showDatePicker && (
+              <DateTimePicker
+                value={minReturnDate}
+                mode="date"
+                minimumDate={minReturnDate}
+                display={Platform.OS === "ios" ? "spinner" : "default"}
+                onChange={onChangeDate}
+              />
+            )}
 
             <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit} disabled={submitting}>
               {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>Submit Request</Text>}
@@ -328,7 +359,7 @@ const styles = StyleSheet.create({
   stepBtn: { width: 44, height: 44, borderRadius: 22, borderWidth: 1.5, borderColor: "#E0E0E0", justifyContent: "center", alignItems: "center" },
   stepCount: { fontSize: 24, fontWeight: "bold", color: "#2C3E50", width: 40, textAlign: "center" },
   formLabel: { fontSize: 13, color: "#555", marginTop: 12, marginBottom: 4 },
-  formInput: { backgroundColor: "#F5F7FA", borderRadius: 8, borderWidth: 1, borderColor: "#E0E5EC", padding: 12, fontSize: 15, minHeight: 52 },
+  formInput: { backgroundColor: "#F5F7FA", borderRadius: 8, borderWidth: 1, borderColor: "#E0E5EC", padding: 12, fontSize: 15, minHeight: 52, justifyContent: "center" },
   submitBtn: { backgroundColor: "#2196F3", height: 52, borderRadius: 12, justifyContent: "center", alignItems: "center", marginTop: 20 },
   submitText: { color: "#fff", fontSize: 15, fontWeight: "bold" },
   chipRow: { maxHeight: 48 },

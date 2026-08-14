@@ -64,19 +64,21 @@ export default function AdminSettingsPage() {
   };
 
   useEffect(() => {
-    const saved = localStorage.getItem("ecp_system_settings");
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (parsed.systemName) setSystemName(parsed.systemName);
-        if (parsed.borrowDuration)
-          setBorrowDuration(String(parsed.borrowDuration));
-        if (parsed.maxItemsPerBorrow)
-          setMaxItemsPerBorrow(String(parsed.maxItemsPerBorrow));
-      } catch {
-        /* ignore */
+    const fetchSettings = async () => {
+      const { data } = await supabase
+        .from("system_settings")
+        .select("system_name, borrow_duration_limit, max_items_per_borrow")
+        .eq("id", 1)
+        .single();
+      if (data) {
+        if (data.system_name) setSystemName(data.system_name);
+        if (data.borrow_duration_limit != null)
+          setBorrowDuration(String(data.borrow_duration_limit));
+        if (data.max_items_per_borrow != null)
+          setMaxItemsPerBorrow(String(data.max_items_per_borrow));
       }
-    }
+    };
+    fetchSettings();
   }, []);
 
   useEffect(() => {
@@ -214,18 +216,23 @@ export default function AdminSettingsPage() {
     });
   };
 
-  const handleSystemSave = () => {
+  const handleSystemSave = async () => {
     setSystemSaving(true);
-    const settings = {
-      systemName,
-      borrowDuration: parseInt(borrowDuration, 10) || 7,
-      maxItemsPerBorrow: parseInt(maxItemsPerBorrow, 10) || 5,
-    };
-    localStorage.setItem("ecp_system_settings", JSON.stringify(settings));
-    setTimeout(() => {
-      setSystemSaving(false);
+    const { error } = await supabase
+      .from("system_settings")
+      .upsert({
+        id: 1,
+        system_name: systemName || "ECP Inventory Lab",
+        borrow_duration_limit: parseInt(borrowDuration, 10) || 7,
+        max_items_per_borrow: parseInt(maxItemsPerBorrow, 10) || 5,
+        updated_by: userId || null,
+      });
+    setSystemSaving(false);
+    if (error) {
+      toast({ title: "Error", description: error.message || "Failed to save settings.", variant: "error" });
+    } else {
       toast({ title: "Settings Saved", description: "System settings have been updated.", variant: "success" });
-    }, 300);
+    }
   };
 
   if (loading) {

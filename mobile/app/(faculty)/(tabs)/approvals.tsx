@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, RefreshControl, Animated } from "react-native";
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, RefreshControl, Animated, Modal, TextInput } from "react-native";
 import { supabase } from "@/lib/supabase";
 
 function SkeletonBlock({ style }: { style: any }) {
@@ -23,6 +23,8 @@ export default function FacultyApprovalsScreen() {
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [denyTarget, setDenyTarget] = useState<any>(null);
+  const [denyReason, setDenyReason] = useState("");
 
   const fetchData = async () => {
     let query = supabase.from("borrow_requests").select("*, users!borrow_requests_user_id_fkey(full_name, id_no), borrow_items(*, equipment:equipment_id(name))").eq("request_type", "student").order("created_at", { ascending: false });
@@ -41,38 +43,44 @@ export default function FacultyApprovalsScreen() {
     setRefreshing(false);
   };
 
-  const handleAction = async (id: string, action: "approved" | "denied") => {
+  const handleApprove = async (id: string) => {
     setActing(id);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
     const req = requests.find((r) => r.id === id);
-    if (action === "approved") {
-      await supabase.from("borrow_requests").update({ status: "approved", approved_by: user.id, approved_at: new Date().toISOString() }).eq("id", id);
-      if (req) {
-        await supabase.rpc("create_borrow_notification", {
-          p_user_id: req.user_id,
-          p_title: "Borrow Request Approved",
-          p_message: "Your borrow request has been approved by faculty.",
-          p_reference_id: id,
-        });
-      }
-    } else {
-      Alert.prompt("Denial Reason", "Enter reason:", async (reason) => {
-        await supabase.from("borrow_requests").update({ status: "denied", denied_reason: reason || "No reason given" }).eq("id", id);
-        if (req) {
-          await supabase.rpc("create_borrow_notification", {
-            p_user_id: req.user_id,
-            p_title: "Borrow Request Denied",
-            p_message: `Your borrow request was denied.${reason ? ` Reason: ${reason}` : ""}`,
-            p_reference_id: id,
-          });
-        }
-        setRequests((prev) => prev.filter((r) => r.id !== id));
+    await supabase.from("borrow_requests").update({ status: "approved", approved_by: user.id, approved_at: new Date().toISOString() }).eq("id", id);
+    if (req) {
+      await supabase.rpc("create_borrow_notification", {
+        p_user_id: req.user_id,
+        p_title: "Borrow Request Approved",
+        p_message: "Your borrow request has been approved by faculty.",
+        p_reference_id: id,
       });
-      return;
     }
-    setRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status: action } : r)));
+    setRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status: "approved" } : r)));
+    setActing(null);
+  };
+
+  const openDeny = (req: any) => {
+    setDenyTarget(req);
+    setDenyReason("");
+  };
+
+  const confirmDeny = async () => {
+    if (!denyTarget) return;
+    setActing(denyTarget.id);
+    const reason = denyReason.trim() || "No reason given";
+    await supabase.from("borrow_requests").update({ status: "denied", denied_reason: reason }).eq("id", denyTarget.id);
+    await supabase.rpc("create_borrow_notification", {
+      p_user_id: denyTarget.user_id,
+      p_title: "Borrow Request Denied",
+      p_message: `Your borrow request was denied.${denyReason.trim() ? ` Reason: ${denyReason.trim()}` : ""}`,
+      p_reference_id: denyTarget.id,
+    });
+    setRequests((prev) => prev.filter((r) => r.id !== denyTarget.id));
+    setDenyTarget(null);
+    setDenyReason("");
     setActing(null);
   };
 
@@ -136,10 +144,10 @@ export default function FacultyApprovalsScreen() {
             </View>
             {item.status === "pending" && (
               <View style={styles.actions}>
-                <TouchableOpacity style={styles.approveBtn} onPress={() => handleAction(item.id, "approved")} disabled={acting === item.id}>
+                <TouchableOpacity style={styles.approveBtn} onPress={() => handleApprove(item.id)} disabled={acting === item.id}>
                   {acting === item.id ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.approveText}>✓</Text>}
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.denyBtn} onPress={() => handleAction(item.id, "denied")} disabled={acting === item.id}>
+                <TouchableOpacity style={styles.denyBtn} onPress={() => openDeny(item)} disabled={acting === item.id}>
                   <Text style={styles.denyText}>✕</Text>
                 </TouchableOpacity>
               </View>
@@ -159,6 +167,40 @@ export default function FacultyApprovalsScreen() {
           </View>
         }
       />
+
+      <Modal visible={!!denyTarget} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Deny Borrow Request</Text>
+            <Text style={styles.modalSubtitle}>
+              {denyTarget?.users?.full_name || "Student"}&apos;s request will be denied.
+            </Text>
+
+            <Text style={styles.inputLabel}>Reason</Text>
+            <TextInput
+              style={styles.input}
+              value={denyReason}
+              onChangeText={setDenyReason}
+              placeholder="Enter reason (optional)"
+              placeholderTextColor="#999"
+              multiline
+            />
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => { setDenyTarget(null); setDenyReason(""); }}>
+                <Text style={styles.cancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.denyConfirmBtn} onPress={confirmDeny} disabled={acting === denyTarget?.id}>
+                {acting === denyTarget?.id ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.denyConfirmText}>Deny Request</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -186,4 +228,15 @@ const styles = StyleSheet.create({
   denyBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: "#E74C3C", justifyContent: "center", alignItems: "center" },
   denyText: { color: "#fff", fontSize: 18, fontWeight: "bold" },
   statusBadge: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 14 },
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center" },
+  modalContent: { backgroundColor: "#fff", width: "90%", borderRadius: 16, padding: 24 },
+  modalTitle: { fontSize: 20, fontWeight: "bold", color: "#1A2980", marginBottom: 6, textAlign: "center" },
+  modalSubtitle: { fontSize: 13, color: "#666", textAlign: "center", marginBottom: 16 },
+  inputLabel: { fontSize: 13, fontWeight: "600", color: "#444", marginBottom: 6 },
+  input: { borderWidth: 1, borderColor: "#D0D0D0", borderRadius: 10, padding: 12, fontSize: 15, color: "#222", backgroundColor: "#F9F9F9", minHeight: 90, textAlignVertical: "top" },
+  modalActions: { flexDirection: "row", gap: 12, marginTop: 24 },
+  cancelBtn: { flex: 1, height: 48, borderRadius: 10, justifyContent: "center", alignItems: "center", backgroundColor: "#E0E0E0" },
+  cancelBtnText: { color: "#555", fontSize: 15, fontWeight: "600" },
+  denyConfirmBtn: { flex: 1, height: 48, borderRadius: 10, justifyContent: "center", alignItems: "center", backgroundColor: "#E74C3C" },
+  denyConfirmText: { color: "#fff", fontSize: 15, fontWeight: "600" },
 });

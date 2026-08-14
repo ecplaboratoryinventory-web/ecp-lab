@@ -215,6 +215,23 @@ CREATE TABLE alerts (
 );
 
 -- ============================================================================
+-- TABLE: system_settings
+-- Single-row settings (id = 1) replacing localStorage config.
+-- ============================================================================
+CREATE TABLE system_settings (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  system_name TEXT NOT NULL DEFAULT 'ECP Inventory Lab',
+  borrow_duration_limit INTEGER NOT NULL DEFAULT 7 CHECK (borrow_duration_limit BETWEEN 1 AND 365),
+  max_items_per_borrow INTEGER NOT NULL DEFAULT 5 CHECK (max_items_per_borrow BETWEEN 1 AND 100),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  updated_by UUID REFERENCES users(id)
+);
+
+INSERT INTO system_settings (id, system_name, borrow_duration_limit, max_items_per_borrow)
+VALUES (1, 'ECP Inventory Lab', 7, 5)
+ON CONFLICT (id) DO NOTHING;
+
+-- ============================================================================
 -- TABLE: maintenance
 -- ============================================================================
 CREATE TABLE maintenance (

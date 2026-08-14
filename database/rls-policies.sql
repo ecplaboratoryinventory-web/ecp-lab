@@ -12,6 +12,7 @@ ALTER TABLE class_schedules ENABLE ROW LEVEL SECURITY;
 ALTER TABLE damage_reports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE activity_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE system_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE announcements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE alerts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE maintenance ENABLE ROW LEVEL SECURITY;
@@ -241,6 +242,19 @@ CREATE POLICY "Admin read activity logs" ON activity_logs
 
 CREATE POLICY "System insert activity logs" ON activity_logs
   FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+
+-- ============================================================================
+-- SYSTEM SETTINGS
+-- ============================================================================
+CREATE POLICY "Public read system settings" ON system_settings
+  FOR SELECT USING (true);
+
+CREATE POLICY "Admin write system settings" ON system_settings
+  FOR UPDATE USING (is_admin_or_staff())
+  WITH CHECK (is_admin_or_staff());
+
+CREATE POLICY "Admin insert system settings" ON system_settings
+  FOR INSERT WITH CHECK (is_admin_or_staff());
 
 -- ============================================================================
 -- ANNOUNCEMENTS
