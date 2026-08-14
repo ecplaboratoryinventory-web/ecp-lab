@@ -21,11 +21,11 @@ const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
 });
 
 const MYSQL_CONFIG = {
-  host: "localhost",
-  port: 3306,
-  user: "lemuel",
-  password: "lemuel_0405",
-  database: "lab_inventory_db",
+  host: process.env.MYSQL_HOST || "localhost",
+  port: Number(process.env.MYSQL_PORT || 3306),
+  user: process.env.MYSQL_USER || "lemuel",
+  password: process.env.MYSQL_PASSWORD || "",
+  database: process.env.MYSQL_DATABASE || "lab_inventory_db",
 };
 
 const userMap = new Map();

@@ -3,9 +3,9 @@ require("dotenv").config({ path: "web/.env.local" });
 const cloudinary = require("cloudinary").v2;
 
 cloudinary.config({
-  cloud_name: "bytar2oq",
-  api_key: "374289896135466",
-  api_secret: "muEl14y3UlWxAroByeT9i1GylG4",
+  cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || "bytar2oq",
+  api_key: process.env.CLOUDINARY_API_KEY || "",
+  api_secret: process.env.CLOUDINARY_API_SECRET || "",
 });
 
 const supabase = createClient(

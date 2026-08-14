@@ -3,6 +3,7 @@
 > Last updated: **Aug 14, 2026**
 > Deep audit performed Aug 14, 2026 against repo code (`web/`, `mobile/`, `database/`, `scripts/`).
 > ⚠️ Earlier entries below marked "✅ Done" are the status **as claimed on Jul 27, 2026** — the deep audit revealed several of them are **broken at runtime** (see the new Deep Audit sections at the top).
+> **Progress (Aug 14, 2026):** All Priority 1 + Priority 2 items are now resolved and verified (see tables below). Priority 3 secrets are moved to env vars; Cloudinary key + MySQL password still need rotation (they remain in git history).
 
 ---
 
@@ -10,15 +11,15 @@
 
 These are runtime blockers that must be fixed first. All were verified directly in the code.
 
-| # | Issue | Location |
+| # | Issue | Status (Aug 14) |
 |---|---|---|
-| 1 | **Mobile login is blocked by RLS.** Login reads `users` by `id_no` while unauthenticated; RLS only permits own-record reads (`auth.uid() = id`), so anonymous gets 0 rows → "Account not found" always. | `mobile/app/(auth)/login.tsx:21` vs `database/rls-policies.sql:50` |
-| 2 | **Faculty return/borrow writes are RLS-denied.** `borrow_requests` update (non-pending), `borrow_items.returned_quantity` (admin-only), and `equipment.available_quantity` (admin-only) all fail for faculty; errors are swallowed, so it looks like it works. | `mobile/app/(faculty)/return.tsx:74-88`, `(faculty)/borrow.tsx:68-70` vs `rls-policies.sql:111,154,129-133` |
-| 3 | **`POST /api/email` is an unauthenticated open email relay** — anyone can send mail from the lab Gmail. All `/api/*` is exempted from the auth proxy. | `web/app/api/email/route.ts`, `web/proxy.ts:9` |
-| 4 | **`equipment.department` doesn't exist in `schema.sql`** but faculty web+mobile filter by it → query errors → **faculty home can hang on an infinite skeleton**. | `mobile/app/(faculty)/(tabs)/home.tsx:34`, `web/app/faculty/{dashboard,equipment,borrow,history}/page.tsx` |
-| 5 | **Admin damage-report creation fails RLS.** Admin inserts with `user_id` = student's id, but the only insert policy requires `auth.uid() = user_id`. | `web/app/admin/borrow-requests/page.tsx:355,420` vs `rls-policies.sql:184` |
-| 6 | **Cloudinary uploads can't work** — `NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET` is referenced by `web/lib/cloudinary.ts` but **missing from `web/.env.local`**. | `web/.env.local` |
-| 7 | **EAS build can't run** — `mobile/app.json` has no `android.package` (required for EAS); also missing `scheme` (deep links) and splash plugin. | `mobile/app.json:12-20` |
+| 1 | **Mobile login is blocked by RLS.** Login reads `users` by `id_no` while unauthenticated; RLS only permits own-record reads (`auth.uid() = id`), so anonymous gets 0 rows → "Account not found" always. | ✅ Fixed — `lookup_login(identifier)` RPC (SECURITY DEFINER, search_path set, GRANT to anon) resolves id_no → email/role for login |
+| 2 | **Faculty return/borrow writes are RLS-denied.** `borrow_requests` update (non-pending), `borrow_items.returned_quantity` (admin-only), and `equipment.available_quantity` (admin-only) all fail for faculty; errors are swallowed, so it looks like it works. | ✅ Fixed — `complete_return(uuid)` + `submit_faculty_borrow(...)` RPCs (authenticated-callable) handle stock/status writes; faculty flows route through them |
+| 3 | **`POST /api/email` is an unauthenticated open email relay** — anyone can send mail from the lab Gmail. All `/api/*` is exempted from the auth proxy. | ✅ Fixed — auth check + admin/staff role guard + in-memory rate limit in `route.ts` |
+| 4 | **`equipment.department` doesn't exist in `schema.sql`** but faculty web+mobile filter by it → query errors → **faculty home can hang on an infinite skeleton**. | ✅ Fixed — `department` column present in `schema.sql` (users:20, equipment:73) |
+| 5 | **Admin damage-report creation fails RLS.** Admin inserts with `user_id` = student's id, but the only insert policy requires `auth.uid() = user_id`. | ✅ Fixed — added `Admin insert damage reports` policy (`is_admin_or_staff()`) in `rls-policies.sql:209` |
+| 6 | **Cloudinary uploads can't work** — `NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET` is referenced by `web/lib/cloudinary.ts` but **missing from `web/.env.local`**. | 🟡 Key present but **value empty** — need unsigned preset created in Cloudinary dashboard + set in `.env.local` |
+| 7 | **EAS build can't run** — `mobile/app.json` has no `android.package` (required for EAS); also missing `scheme` (deep links) and splash plugin. | ✅ Fixed — `android.package: com.ecplab.inventory`, `scheme: ecplab`, `expo-notifications` plugin all set; only real EAS `projectId` remains (placeholder `0000...`) |
 
 ---
 
@@ -26,24 +27,24 @@ These are runtime blockers that must be fixed first. All were verified directly 
 
 Confirmed against `CAPSTONE-ALIGNMENT.md`. These remain open:
 
-| Requirement | Status |
-|---|---|
-| **Push notifications** (Expo Push + FCM) | ❌ Not implemented anywhere — no `expo-notifications`, no exp.host calls, no `/api/notifications/send`, no edge function. `users.push_token` is a dead column. |
-| **Subject-based equipment filtering** | ❌ No `student_subjects` / `equipment_subjects` tables. `subject_tags` is written by the admin equipment form but **not in `schema.sql`** → fails on a pristine DB. |
-| **Mobile student return flow** | ❌ `(student)/return.tsx` **MISSING**; request detail has no "Return Items" action. |
-| **Mobile faculty schedule screen** | ❌ `(faculty)/schedule.tsx` **MISSING**; `class_schedules` never queried on mobile. |
+| Requirement | Status (Aug 14) |
+|---|---|---|
+| **Push notifications** (Expo Push + FCM) | ✅ Implemented — edge function `notify-push` (vault `push_service_role_key`, trigger `notify_push_on_insert`), `mobile/lib/push.ts`, `expo-notifications` config, Realtime + mark-all-read. Requires real EAS `projectId` for device tokens. |
+| **Subject-based equipment filtering** | ✅ Implemented — `users.enrolled_subjects` TEXT[] + `equipment.subject_tags` in schema (defaults `'{}'`), admin CRUD on students page, mobile borrow chips with overlap filter, demo tags seeded. |
+| **Mobile student return flow** | ✅ Implemented — `(student)/return.tsx` lists active borrowed/approved requests, tap → confirm → `complete_return` RPC; request detail has "Return Items" card. |
+| **Mobile faculty schedule screen** | ✅ Implemented — `(faculty)/(tabs)/schedule.tsx` (day-grouped, Today badge, pull-to-refresh), linked from home; RLS faculty-read-own verified; demo data seeded. |
 
 ---
 
 ## 🔴 Security & Secrets (NEW)
 
-| # | Issue | Action |
+| # | Issue | Action / Status (Aug 14) |
 |---|---|---|
-| 1 | Cloudinary `api_secret` hardcoded in `scripts/seed-images.cjs:6-8` (git-tracked) | **Rotate key + move to env** |
-| 2 | MySQL password `lemuel_0405` in `scripts/migrate-mysql.mjs:27`; empty root password in `scripts/migrate-mysql.cjs:24` (git-tracked) | Remove / use env vars |
-| 3 | `test-credentials.txt` (plaintext passwords) on disk | Delete (gitignored but still on disk) |
-| 4 | `activity_logs` INSERT `WITH CHECK (true)` — anonymous anon-key writes | Tighten to `auth.uid() IS NOT NULL` (`rls-policies.sql:214`) |
-| 5 | `/api/reports/*` have no admin role check (any logged-in user can call) | Add role guard |
+| 1 | Cloudinary `api_secret` hardcoded in `scripts/seed-images.cjs:6-8` (git-tracked) | ✅ Moved to `CLOUDINARY_API_SECRET` env; ⚠️ **rotate the key** — it remains in git history (`2dfdefb`) |
+| 2 | MySQL password `lemuel_0405` in `scripts/migrate-mysql.mjs:27`; empty root password in `scripts/migrate-mysql.cjs:24` (git-tracked) | ✅ Moved to `MYSQL_*` env vars (documented in `.env.example`); ⚠️ **rotate MySQL password** — remains in git history (`90f20f9`) |
+| 3 | `test-credentials.txt` (plaintext passwords) on disk | ✅ Already deleted (gitignored) |
+| 4 | `activity_logs` INSERT `WITH CHECK (true)` — anonymous anon-key writes | ✅ Tightened to `auth.uid() IS NOT NULL` (`rls-policies.sql:243`) |
+| 5 | `/api/reports/*` have no admin role check (any logged-in user can call) | ✅ Fixed — admin/staff role guard in `monthly/route.ts` + `activity-logs/route.ts` |
 
 ---
 
@@ -130,25 +131,25 @@ Confirmed against `CAPSTONE-ALIGNMENT.md`. These remain open:
 ## Remaining — Suggested Fix Order
 
 ### Priority 1 — Critical blockers
-1. Fix mobile login RLS (allow anon lookup by `id_no`, or login by email)
-2. Fix faculty return/borrow RLS (borrow_items + borrow_requests + equipment updates)
-3. Authenticate + rate-limit `POST /api/email`
-4. Fix `equipment.department` query bug (add column or remove filter)
-5. Add admin INSERT policy for `damage_reports`
-6. Add `NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET` to `.env.local`
-7. Add `android.package` (+ `scheme`) to `mobile/app.json`
+1. ~~Fix mobile login RLS~~ ✅ `lookup_login` RPC
+2. ~~Fix faculty return/borrow RLS~~ ✅ `complete_return` + `submit_faculty_borrow` RPCs
+3. ~~Authenticate + rate-limit `POST /api/email`~~ ✅ auth + role guard + rate limit
+4. ~~Fix `equipment.department` query bug~~ ✅ column in schema
+5. ~~Add admin INSERT policy for `damage_reports`~~ ✅ policy added
+6. 🟡 Cloudinary upload preset — env key present, **value still empty** (needs dashboard unsigned preset)
+7. ~~Add `android.package` (+ `scheme`) to `mobile/app.json`~~ ✅ both set; real EAS `projectId` still placeholder
 
 ### Priority 2 — Capstone requirements
-8. Push notifications (Expo Push API + token registration + `/api/notifications/send`)
-9. Subject-based filtering (DB tables + admin tags + UI)
-10. Mobile student return flow
-11. Mobile faculty schedule screen
+8. ~~Push notifications~~ ✅ edge function + trigger + mobile client
+9. ~~Subject-based filtering~~ ✅ enrolled_subjects + subject_tags + UI
+10. ~~Mobile student return flow~~ ✅ return screen + complete_return
+11. ~~Mobile faculty schedule screen~~ ✅ schedule screen + RLS + seed
 
 ### Priority 3 — Security
-12. Rotate committed secrets (seed-images.cjs, migrate-mysql.mjs)
-13. Delete `test-credentials.txt`
-14. Tighten `activity_logs` INSERT policy
-15. Add role checks to `/api/reports/*`
+12. 🟡 Committed secrets moved to env vars — **rotate Cloudinary key + MySQL password** (still in git history)
+13. ~~Delete `test-credentials.txt`~~ ✅ already gone
+14. ~~Tighten `activity_logs` INSERT policy~~ ✅ `auth.uid() IS NOT NULL`
+15. ~~Add role checks to `/api/reports/*`~~ ✅ admin/staff guard
 
 ### Priority 4 — Completeness
 16. Wire orphan pages into nav
