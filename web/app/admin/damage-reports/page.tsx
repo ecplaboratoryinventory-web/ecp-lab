@@ -124,7 +124,9 @@ export default function DamageReportsPage() {
   }, [statusFilter]);
 
   useEffect(() => {
-    fetchData();
+    void (async () => {
+      await fetchData();
+    })();
   }, [fetchData]);
 
   const openView = (report: DamageReport) => {

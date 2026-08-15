@@ -5,16 +5,32 @@ import { createClient } from "@/lib/supabase/client";
 import { Microscope, CheckCircle, Clock, HandHelping, History, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 
+interface FacultyBorrow {
+  id: string;
+  status: string;
+  request_type: string;
+  borrow_date: string | null;
+  return_date: string | null;
+  created_at: string;
+  borrow_items: { equipment: { name: string } | null }[] | null;
+}
+
+interface FacultyNotification {
+  id: string;
+  title: string;
+  message: string | null;
+}
+
 export default function FacultyDashboardPage() {
   const supabase = createClient();
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState("");
   const [userDept, setUserDept] = useState("");
   const [stats, setStats] = useState({ total: 0, available: 0, active: 0, faculty: 0, overdue: 0 });
-  const [recentBorrows, setRecentBorrows] = useState<any[]>([]);
+  const [recentBorrows, setRecentBorrows] = useState<FacultyBorrow[]>([]);
   const [categories, setCategories] = useState<{ name: string; count: number }[]>([]);
   const [maxCat, setMaxCat] = useState(1);
-  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<FacultyNotification[]>([]);
 
   const CAT_COLORS = ["#378ADD", "#1D9E75", "#7F77DD", "#BA7517", "#D85A30", "#888780"];
 
@@ -28,30 +44,34 @@ export default function FacultyDashboardPage() {
     setUserName(name.split(" ")[0]);
     setUserDept(dept || "");
 
-    const eq = dept ? (q: any) => q.eq("department", dept) : (q: any) => q;
+    let totalQuery = supabase.from("equipment").select("*", { count: "exact", head: true });
+    let availableQuery = supabase.from("equipment").select("*", { count: "exact", head: true }).eq("status", "available");
+    if (dept) {
+      totalQuery = totalQuery.eq("department", dept);
+      availableQuery = availableQuery.eq("department", dept);
+    }
 
-    const [{ count: total }, { count: available }] = await Promise.all([
-      eq(supabase.from("equipment").select("*", { count: "exact", head: true })),
-      eq(supabase.from("equipment").select("*", { count: "exact", head: true }).eq("status", "available")),
-    ]);
+    const [{ count: total }, { count: available }] = await Promise.all([totalQuery, availableQuery]);
 
     const { data: borrows } = await supabase.from("borrow_requests").select("*, borrow_items(equipment_id, quantity, equipment:equipment_id(name))").eq("user_id", user.id).order("created_at", { ascending: false });
-    const active = borrows?.filter((b: any) => b.status === "borrowed" || b.status === "approved").length || 0;
-    const overdue = borrows?.filter((b: any) => b.status === "borrowed" && new Date(b.borrow_date).getTime() + 3 * 60 * 60 * 1000 < Date.now()).length || 0;
-    const faculty = borrows?.filter((b: any) => b.request_type === "faculty").length || 0;
+    const active = borrows?.filter((b: FacultyBorrow) => b.status === "borrowed" || b.status === "approved").length || 0;
+    const overdue = borrows?.filter((b: FacultyBorrow) => b.status === "borrowed" && new Date(b.borrow_date || "").getTime() + 3 * 60 * 60 * 1000 < Date.now()).length || 0;
+    const faculty = borrows?.filter((b: FacultyBorrow) => b.request_type === "faculty").length || 0;
 
     setStats({ total: total || 0, available: available || 0, active, faculty, overdue });
     setRecentBorrows(borrows?.slice(0, 5) || []);
 
     const { data: cats } = await supabase.from("categories").select("id, name");
     if (cats) {
-      const catData = await Promise.all(cats.map(async (c: any) => {
-        const { count } = await eq(supabase.from("equipment").select("*", { count: "exact", head: true })).eq("category_id", c.id);
+      const catData = await Promise.all(cats.map(async (c: { id: string; name: string }) => {
+        let catQuery = supabase.from("equipment").select("*", { count: "exact", head: true }).eq("category_id", c.id);
+        if (dept) catQuery = catQuery.eq("department", dept);
+        const { count } = await catQuery;
         return { name: c.name, count: count || 0 };
       }));
-      const filtered = catData.filter((c: any) => c.count > 0).sort((a: any, b: any) => b.count - a.count).slice(0, 6);
+      const filtered = catData.filter((c: { name: string; count: number }) => c.count > 0).sort((a, b) => b.count - a.count).slice(0, 6);
       setCategories(filtered);
-      setMaxCat(Math.max(...filtered.map((c: any) => c.count), 1));
+      setMaxCat(Math.max(...filtered.map((c: { name: string; count: number }) => c.count), 1));
     }
 
     const { data: notifs } = await supabase.from("notifications").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(4);
@@ -61,7 +81,9 @@ export default function FacultyDashboardPage() {
   };
 
   useEffect(() => {
-    fetchAll();
+    void (async () => {
+      await fetchAll();
+    })();
   }, []);
 
   useEffect(() => {
@@ -196,7 +218,7 @@ export default function FacultyDashboardPage() {
                       </td>
                     </tr>
                   ) : (
-                    recentBorrows.map((b: any) => (
+                    recentBorrows.map((b: FacultyBorrow) => (
                       <tr key={b.id} className="hover:bg-[#f8fafb]">
                         <td className="border-b border-[#dde4ec] px-2.5 py-2.5 text-[0.8rem]">
                           <div className="font-semibold text-[#1b2b40]">
@@ -249,7 +271,7 @@ export default function FacultyDashboardPage() {
                 </h5>
               </div>
               <div className="px-5 py-4">
-                {categories.map((c: any, i: number) => (
+                {categories.map((c: { name: string; count: number }, i: number) => (
                   <div key={c.name} className="mb-2.5 flex items-center gap-2.5">
                     <span className="w-[110px] shrink-0 overflow-hidden text-ellipsis whitespace-nowrap text-[0.73rem] text-[#4a5e74]">{c.name}</span>
                     <div className="h-[7px] flex-1 overflow-hidden rounded bg-[#f2f5f9]">
@@ -300,7 +322,7 @@ export default function FacultyDashboardPage() {
               {notifications.length === 0 ? (
                 <p className="py-4 text-center text-[0.8rem] text-[#8fa1b3]">No new notifications</p>
               ) : (
-                notifications.map((n: any) => (
+                notifications.map((n: FacultyNotification) => (
                   <div key={n.id} className="border-b border-[#dde4ec] py-2 last:border-0">
                     <div className="text-[0.8rem] font-semibold text-[#1b2b40]">{n.title}</div>
                     <div className="mt-1 text-[0.72rem] text-[#8fa1b3]">{n.message?.slice(0, 60)}</div>

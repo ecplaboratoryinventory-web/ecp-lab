@@ -5,7 +5,6 @@ import { createClient } from "@/lib/supabase/client";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -25,7 +24,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Calendar,
-  PackageCheck,
   Clock,
   CheckCircle,
   Search,
@@ -91,6 +89,7 @@ const PAGE_SIZE = 10;
 function HistoryContent() {
   const supabase = createClient();
   const searchParams = useSearchParams();
+  const initialStatus = searchParams.get("status") || "all";
 
   const [requests, setRequests] = useState<BorrowRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -99,7 +98,7 @@ function HistoryContent() {
 
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState(initialStatus);
   const [searchTerm, setSearchTerm] = useState("");
 
   const [stats, setStats] = useState({ total: 0, active: 0, returned: 0 });
@@ -128,11 +127,6 @@ function HistoryContent() {
     };
     fetchDepartment();
   }, []);
-
-  useEffect(() => {
-    const status = searchParams.get("status");
-    if (status) setStatusFilter(status);
-  }, [searchParams]);
 
   const fetchRequests = useCallback(async () => {
     setLoading(true);
@@ -222,11 +216,15 @@ function HistoryContent() {
   }, []);
 
   useEffect(() => {
-    fetchRequests();
+    void (async () => {
+      await fetchRequests();
+    })();
   }, [fetchRequests]);
 
   useEffect(() => {
-    fetchStats();
+    void (async () => {
+      await fetchStats();
+    })();
   }, [fetchStats]);
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);

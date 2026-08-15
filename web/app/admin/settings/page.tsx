@@ -20,14 +20,6 @@ import {
 } from "lucide-react";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 
-function formatTime(dateStr: string): string {
-  if (!dateStr) return "-";
-  return new Date(dateStr).toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
 export default function AdminSettingsPage() {
   const router = useRouter();
   const supabase = createClient();

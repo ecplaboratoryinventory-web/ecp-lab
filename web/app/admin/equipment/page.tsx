@@ -7,7 +7,6 @@ import { logActivity } from "@/lib/logger";
 import { uploadImage } from "@/lib/cloudinary";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -121,7 +120,9 @@ export default function EquipmentPage() {
   };
 
   useEffect(() => {
-    fetchCategories();
+    void (async () => {
+      await fetchCategories();
+    })();
   }, []);
 
   useEffect(() => {
@@ -130,7 +131,9 @@ export default function EquipmentPage() {
   }, [search]);
 
   useEffect(() => {
-    fetchData();
+    void (async () => {
+      await fetchData();
+    })();
   }, [statusFilter, categoryFilter, debouncedSearch]);
 
   useEffect(() => {

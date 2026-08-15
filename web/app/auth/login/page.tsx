@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { FlaskConical } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -204,14 +204,14 @@ export default function LoginPage() {
             </form>
 
             <div className="mt-5 border-t border-[#ecf0f1] pt-[18px] text-center">
-              <a
+              <Link
                 href="/"
                 className="inline-flex items-center gap-1.5 text-[0.83rem] no-underline transition-colors"
                 style={{ color: "#95a5a6" }}
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
                 Back to Home
-              </a>
+              </Link>
             </div>
           </div>
         </div>

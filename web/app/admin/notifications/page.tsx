@@ -105,7 +105,9 @@ export default function NotificationsPage() {
   }, []);
 
   useEffect(() => {
-    fetchNotifications();
+    void (async () => {
+      await fetchNotifications();
+    })();
   }, [fetchNotifications]);
 
   useEffect(() => {

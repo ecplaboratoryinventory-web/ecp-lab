@@ -29,8 +29,6 @@ import {
   Trash2,
   Calendar,
   Table,
-  AlertTriangle,
-  Clock,
   CheckCheck,
   ChevronLeft,
   ChevronRight,
@@ -165,11 +163,15 @@ export default function MaintenancePage() {
   };
 
   useEffect(() => {
-    fetchEquipment();
+    void (async () => {
+      await fetchEquipment();
+    })();
   }, []);
 
   useEffect(() => {
-    fetchData();
+    void (async () => {
+      await fetchData();
+    })();
   }, [fetchData]);
 
   const openCreate = () => {

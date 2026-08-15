@@ -42,7 +42,9 @@ export default function FacultyAnnouncementsPage() {
   };
 
   useEffect(() => {
-    fetchAnnouncements();
+    void (async () => {
+      await fetchAnnouncements();
+    })();
   }, []);
 
   const toggleExpand = (id: string) => {

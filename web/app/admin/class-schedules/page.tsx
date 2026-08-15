@@ -29,8 +29,6 @@ import {
   CalendarClock,
   Clock,
   Users,
-  BookOpen,
-  Building,
 } from "lucide-react";
 
 interface Faculty {
@@ -158,7 +156,9 @@ export default function ClassSchedulesPage() {
   };
 
   useEffect(() => {
-    fetchData();
+    void (async () => {
+      await fetchData();
+    })();
   }, [search, dayFilter]);
 
   const openCreate = () => {

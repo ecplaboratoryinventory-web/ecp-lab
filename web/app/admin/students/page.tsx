@@ -6,7 +6,6 @@ import { toast } from "@/components/shared/toast";
 import { logActivity } from "@/lib/logger";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
@@ -158,7 +157,9 @@ export default function StudentsPage() {
   };
 
   useEffect(() => {
-    fetchData();
+    void (async () => {
+      await fetchData();
+    })();
   }, [search, statusFilter]);
 
   const openCreate = () => {

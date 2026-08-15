@@ -136,7 +136,7 @@ export default function BorrowRequestsPage() {
   const [damageDescription, setDamageDescription] = useState("");
   const [damageSeverity, setDamageSeverity] = useState<"minor" | "major" | "critical">("minor");
 
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState<number>(0);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<(() => void) | null>(null);
@@ -234,7 +234,9 @@ export default function BorrowRequestsPage() {
   }, [activeTab, statusFilter, search]);
 
   useEffect(() => {
-    fetchData();
+    void (async () => {
+      await fetchData();
+    })();
   }, [fetchData]);
 
   useEffect(() => {

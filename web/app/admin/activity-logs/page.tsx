@@ -204,11 +204,15 @@ export default function ActivityLogsPage() {
   }, []);
 
   useEffect(() => {
-    fetchLogs();
+    void (async () => {
+      await fetchLogs();
+    })();
   }, [fetchLogs]);
 
   useEffect(() => {
-    fetchChartData();
+    void (async () => {
+      await fetchChartData();
+    })();
   }, [fetchChartData]);
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);

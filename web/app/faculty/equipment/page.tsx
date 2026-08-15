@@ -128,15 +128,21 @@ export default function FacultyEquipmentPage() {
   }, [userDept]);
 
   useEffect(() => {
-    fetchCategories();
+    void (async () => {
+      await fetchCategories();
+    })();
   }, [fetchCategories]);
 
   useEffect(() => {
-    fetchEquipment();
+    void (async () => {
+      await fetchEquipment();
+    })();
   }, [fetchEquipment]);
 
   useEffect(() => {
-    fetchStats();
+    void (async () => {
+      await fetchStats();
+    })();
   }, [fetchStats]);
 
   const getStatusBadge = (status: string) => {

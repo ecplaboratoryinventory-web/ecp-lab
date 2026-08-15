@@ -74,7 +74,9 @@ export default function CategoriesPage() {
   };
 
   useEffect(() => {
-    fetchCategories();
+    void (async () => {
+      await fetchCategories();
+    })();
   }, []);
 
   const totalCategories = categories.length;
@@ -263,7 +265,7 @@ export default function CategoriesPage() {
                     colSpan={4}
                     className="px-4 py-12 text-center text-silver"
                   >
-                    No categories found. Click "Add Category" to create one.
+                    No categories found. Click &quot;Add Category&quot; to create one.
                   </td>
                 </tr>
               ) : (

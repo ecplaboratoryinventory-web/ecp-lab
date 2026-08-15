@@ -17,7 +17,6 @@ import {
   Check,
   Loader2,
   Monitor,
-  Calendar,
   FileText,
   ClipboardList,
   X,
@@ -125,11 +124,15 @@ export default function BorrowPage() {
   }, []);
 
   useEffect(() => {
-    fetchCategories();
+    void (async () => {
+      await fetchCategories();
+    })();
   }, []);
 
   useEffect(() => {
-    fetchEquipment();
+    void (async () => {
+      await fetchEquipment();
+    })();
   }, [fetchEquipment]);
 
   const toggleSelect = (eq: Equipment) => {
@@ -143,8 +146,6 @@ export default function BorrowPage() {
       return next;
     });
   };
-
-  const isSelected = (id: string) => selectedIds.has(id);
 
   const goToStep2 = () => {
     if (selectedIds.size === 0) return;
@@ -290,22 +291,6 @@ export default function BorrowPage() {
       month: "short",
       day: "numeric",
     });
-  };
-
-  const getStatusBadge = (status: string) => {
-    const config: Record<string, { label: string; className: string }> = {
-      available: { label: "Available", className: "bg-green-100 text-green-700" },
-      borrowed: { label: "In Use", className: "bg-blue-100 text-blue-700" },
-      under_maintenance: { label: "Maintenance", className: "bg-amber-100 text-amber-700" },
-    };
-    const c = config[status] || config.available;
-    return (
-      <span
-        className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase ${c.className}`}
-      >
-        {c.label}
-      </span>
-    );
   };
 
   return (

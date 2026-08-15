@@ -10,7 +10,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Toaster, toast } from "@/components/ui/toast";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import {
-  User,
   Mail,
   School,
   Shield,

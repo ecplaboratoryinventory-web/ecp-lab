@@ -159,11 +159,15 @@ export default function FacultyPage() {
   }, [supabase, search, departmentFilter, statusFilter]);
 
   useEffect(() => {
-    fetchStats();
+    void (async () => {
+      await fetchStats();
+    })();
   }, [fetchStats]);
 
   useEffect(() => {
-    fetchFaculty();
+    void (async () => {
+      await fetchFaculty();
+    })();
   }, [fetchFaculty]);
 
   const totalPages = Math.ceil(faculty.length / ITEMS_PER_PAGE);

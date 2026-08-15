@@ -25,9 +25,7 @@ import {
   Trash2,
   Calendar,
   Clock,
-  School,
   Loader2,
-  BookOpen,
   GraduationCap,
   DoorOpen,
 } from "lucide-react";
@@ -75,14 +73,6 @@ const EMPTY_FORM: FormData = {
   room: "",
   semester: "1st Semester",
   school_year: new Date().getFullYear().toString(),
-};
-
-const DAY_ABBR: Record<string, string> = {
-  Monday: "Mon",
-  Tuesday: "Tue",
-  Wednesday: "Wed",
-  Thursday: "Thu",
-  Friday: "Fri",
 };
 
 const DAY_COLORS: Record<string, { bg: string; accent: string }> = {
@@ -159,7 +149,9 @@ export default function SchedulePage() {
   }, [supabase]);
 
   useEffect(() => {
-    fetchSchedules();
+    void (async () => {
+      await fetchSchedules();
+    })();
   }, [fetchSchedules]);
 
   const openCreate = () => {

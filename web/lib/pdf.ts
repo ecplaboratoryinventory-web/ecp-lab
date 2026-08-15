@@ -160,7 +160,7 @@ function actionBadgeClass(action: string): [number, number, number, number, numb
   return map[action] || [243, 244, 246, 85, 85, 85];
 }
 
-function certificationBlock(doc: jsPDF, y: number, docNo: string) {
+function certificationBlock(doc: jsPDF, y: number) {
   const w = doc.internal.pageSize.getWidth();
   const blockX = 14;
   const blockW = w - 28;
@@ -301,7 +301,7 @@ export function generateMonthlyReport(data: MonthlyReportData) {
     y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
   }
 
-  y = certificationBlock(doc, y, docNo);
+  y = certificationBlock(doc, y);
   y = signatureBlock(doc, y, "System Administrator");
   footer(doc, docNo);
 
@@ -406,8 +406,8 @@ export function generateActivityLogPDF(logs: ActivityLog[], title: string) {
   });
 
   const afterTotal = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
-  let certY = certificationBlock(doc, afterTotal, docNo);
-  certY = signatureBlock(doc, certY, "System Administrator");
+  const certY = certificationBlock(doc, afterTotal);
+  signatureBlock(doc, certY, "System Administrator");
   footer(doc, docNo);
 
   doc.save(`ECP_Lab_Activity_Logs_${new Date().toISOString().slice(0, 10)}.pdf`);

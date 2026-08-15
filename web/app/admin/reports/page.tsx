@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -15,7 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/shared/toast";
 import { generateMonthlyReport } from "@/lib/pdf";
-import { BarChart3, FileText, Download, Calendar, TrendingUp, Package } from "lucide-react";
+import { BarChart3, FileText, Calendar, TrendingUp, Package } from "lucide-react";
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -46,7 +45,6 @@ interface ReportData {
 }
 
 export default function ReportsPage() {
-  const supabase = createClient();
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
@@ -66,7 +64,9 @@ export default function ReportsPage() {
   };
 
   useEffect(() => {
-    fetchReport(month, year);
+    void (async () => {
+      await fetchReport(month, year);
+    })();
   }, [month, year]);
 
   const handleDownloadPDF = () => {

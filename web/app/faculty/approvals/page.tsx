@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -13,7 +12,6 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
 import { Toaster, toast } from "@/components/ui/toast";
 import {
   Clock,
@@ -154,11 +152,15 @@ export default function ApprovalsPage() {
   }, []);
 
   useEffect(() => {
-    fetchData();
+    void (async () => {
+      await fetchData();
+    })();
   }, [fetchData]);
 
   useEffect(() => {
-    fetchStats();
+    void (async () => {
+      await fetchStats();
+    })();
   }, [fetchStats]);
 
   useEffect(() => {

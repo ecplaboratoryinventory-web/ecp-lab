@@ -123,7 +123,9 @@ export default function AnnouncementsPage() {
   }, [filter]);
 
   useEffect(() => {
-    fetchData();
+    void (async () => {
+      await fetchData();
+    })();
   }, [fetchData]);
 
   const openCreate = () => {
@@ -172,7 +174,6 @@ export default function AnnouncementsPage() {
   };
 
   const handleToggleActive = (a: Announcement) => {
-    const action = a.is_active ? "deactivate" : "activate";
     withConfirm(
       `${a.is_active ? "Deactivate" : "Activate"} Announcement?`,
       "warning",

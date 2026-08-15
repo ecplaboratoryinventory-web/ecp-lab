@@ -6,14 +6,30 @@ import { Microscope, PackageCheck, Clock, AlertTriangle, HandHelping, Tags, Grad
 import Link from "next/link";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from "recharts";
 
+interface RecentBorrow {
+  id: string;
+  request_type: string;
+  status: string;
+  created_at: string;
+  users: { full_name: string | null } | null;
+}
+
+interface RecentActivity {
+  id: string;
+  action: string;
+  entity_type: string | null;
+  created_at: string;
+  users: { full_name: string | null } | null;
+}
+
 export default function AdminDashboardPage() {
   const supabase = createClient();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ total: 0, available: 0, borrowed: 0, maintenance: 0 });
   const [categoryChart, setCategoryChart] = useState<{ name: string; count: number }[]>([]);
   const [statusChart, setStatusChart] = useState<{ name: string; value: number }[]>([]);
-  const [recentBorrows, setRecentBorrows] = useState<any[]>([]);
-  const [recentActivity, setRecentActivity] = useState<any[]>([]);
+  const [recentBorrows, setRecentBorrows] = useState<RecentBorrow[]>([]);
+  const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
 
   const COLORS = ["#0ea5a0", "#3b82f6", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6", "#ec4899", "#14b8a6"];
 
@@ -26,11 +42,11 @@ export default function AdminDashboardPage() {
 
     const { data: cats } = await supabase.from("categories").select("id, name");
     if (cats) {
-      const cd = await Promise.all(cats.map(async (c: any) => {
+      const cd = await Promise.all(cats.map(async (c: { id: string; name: string }) => {
         const { count } = await supabase.from("equipment").select("*", { count: "exact", head: true }).eq("category_id", c.id);
         return { name: c.name, count: count || 0 };
       }));
-      setCategoryChart(cd.filter((c: any) => c.count > 0));
+      setCategoryChart(cd.filter((c: { name: string; count: number }) => c.count > 0));
     }
 
     setStatusChart([
@@ -49,7 +65,9 @@ export default function AdminDashboardPage() {
   };
 
   useEffect(() => {
-    fetchAll();
+    void (async () => {
+      await fetchAll();
+    })();
   }, []);
 
   useEffect(() => {
@@ -134,7 +152,7 @@ export default function AdminDashboardPage() {
               <div className="h-[270px]">
                 <ResponsiveContainer>
                   <PieChart>
-                    <Pie data={categoryChart} cx="50%" cy="50%" innerRadius={60} outerRadius={100} dataKey="count" label={({ name, value }: any) => `${name}: ${value}`}>
+                    <Pie data={categoryChart} cx="50%" cy="50%" innerRadius={60} outerRadius={100} dataKey="count" label={({ name, value }: { name?: string; value?: number | string }) => `${name}: ${value}`}>
                       {categoryChart.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                     </Pie>
                     <Tooltip />
@@ -216,7 +234,7 @@ export default function AdminDashboardPage() {
               {recentBorrows.length === 0 ? (
                 <tr><td colSpan={4} className="py-8 text-center text-[0.82rem] text-[#8fa1b3]">No borrowings yet</td></tr>
               ) : (
-                recentBorrows.map((b: any) => (
+                recentBorrows.map((b: RecentBorrow) => (
                   <tr key={b.id} className="hover:bg-[#f8fafb]">
                     <td className="border-b border-[#dde4ec] px-2.5 py-2.5 text-[0.8rem] font-semibold text-[#1b2b40]">{b.users?.full_name || "—"}</td>
                     <td className="border-b border-[#dde4ec] px-2.5 py-2.5">
@@ -268,7 +286,7 @@ export default function AdminDashboardPage() {
               {recentActivity.length === 0 ? (
                 <tr><td colSpan={4} className="py-8 text-center text-[0.82rem] text-[#8fa1b3]">No recent activity</td></tr>
               ) : (
-                recentActivity.map((log: any) => (
+                recentActivity.map((log: RecentActivity) => (
                   <tr key={log.id} className="hover:bg-[#f8fafb]">
                     <td className="border-b border-[#dde4ec] px-2.5 py-2.5 text-[0.8rem] text-[#1b2b40]">{log.users?.full_name || "—"}</td>
                     <td className="border-b border-[#dde4ec] px-2.5 py-2.5">
