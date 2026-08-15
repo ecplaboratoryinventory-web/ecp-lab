@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator, RefreshControl, Animated } from "react-native";
 import { supabase } from "@/lib/supabase";
+import { useRouter } from "expo-router";
 
 function SkeletonBlock({ style }: { style: any }) {
   const opacity = useRef(new Animated.Value(0.3)).current;
@@ -18,6 +19,7 @@ function SkeletonBlock({ style }: { style: any }) {
 }
 
 export default function NotificationsScreen() {
+  const router = useRouter();
   const [notifs, setNotifs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -64,6 +66,15 @@ export default function NotificationsScreen() {
   const markRead = async (id: string) => {
     await supabase.from("notifications").update({ is_read: true }).eq("id", id);
     setNotifs((prev) => prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)));
+  };
+
+  const openItem = (item: any) => {
+    markRead(item.id);
+    if (item.reference_type === "borrow_request" && item.reference_id) {
+      router.push(`/(student)/request/${item.reference_id}`);
+    } else if (item.type === "announcement") {
+      router.push("/(student)/(tabs)/home");
+    }
   };
 
   const markAllRead = async () => {
@@ -120,7 +131,7 @@ export default function NotificationsScreen() {
           contentContainerStyle={{ padding: 8 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#1A2980"]} />}
           renderItem={({ item }) => (
-            <TouchableOpacity style={[styles.card, item.is_read && styles.cardRead]} onPress={() => markRead(item.id)}>
+            <TouchableOpacity style={[styles.card, item.is_read && styles.cardRead]} onPress={() => openItem(item)}>
               <View style={styles.accentBar} />
               <View style={{ flex: 1 }}>
                 <Text style={[styles.notifTitle, item.is_read && styles.textRead]}>

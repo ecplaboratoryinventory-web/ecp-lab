@@ -1,21 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { sendEmail, borrowApprovedEmail, borrowReturnedEmail } from "@/lib/email";
-
-const RATE_LIMIT_MAX = 10;
-const RATE_LIMIT_WINDOW_MS = 60_000;
-const hits = new Map<string, { count: number; resetAt: number }>();
-
-function isRateLimited(key: string): boolean {
-  const now = Date.now();
-  const rec = hits.get(key);
-  if (!rec || rec.resetAt < now) {
-    hits.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
-    return false;
-  }
-  rec.count += 1;
-  return rec.count > RATE_LIMIT_MAX;
-}
+import { isRateLimited } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
   try {
@@ -36,7 +22,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    if (isRateLimited(user.id)) {
+    if (isRateLimited(`email:${user.id}`, 10)) {
       return NextResponse.json(
         { error: "Rate limited. Try again later." },
         { status: 429 },

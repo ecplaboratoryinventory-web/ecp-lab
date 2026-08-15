@@ -25,7 +25,9 @@ export default function RequestDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [damageOpen, setDamageOpen] = useState(false);
   const [damageDesc, setDamageDesc] = useState("");
+  const [damageSeverity, setDamageSeverity] = useState("minor");
   const [reporting, setReporting] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
 
   useEffect(() => {
     const fetch = async () => {
@@ -45,17 +47,38 @@ export default function RequestDetailScreen() {
     setReporting(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    await supabase.from("damage_reports").insert({
+    const { error } = await supabase.from("damage_reports").insert({
       user_id: user.id,
       equipment_id: request?.borrow_items?.[0]?.equipment_id,
       borrow_request_id: id,
       description: damageDesc,
-      severity: "minor",
+      severity: damageSeverity,
       status: "pending",
     });
     setReporting(false);
+    if (error) { Alert.alert("Error", error.message); return; }
     setDamageOpen(false);
+    setDamageDesc("");
+    setDamageSeverity("minor");
     Alert.alert("Reported", "Damage report submitted");
+  };
+
+  const handleCancel = async () => {
+    Alert.alert("Cancel Request?", "This will cancel your pending borrow request.", [
+      { text: "Keep Request", style: "cancel" },
+      {
+        text: "Cancel", style: "destructive",
+        onPress: async () => {
+          setCancelling(true);
+          const { error } = await supabase.rpc("cancel_borrow_request", { p_request_id: id });
+          setCancelling(false);
+          if (error) { Alert.alert("Error", error.message); return; }
+          Alert.alert("Cancelled", "Your borrow request has been cancelled.", [
+            { text: "OK", onPress: () => router.back() },
+          ]);
+        },
+      },
+    ]);
   };
 
   if (loading) return (
@@ -159,6 +182,23 @@ export default function RequestDetailScreen() {
             ) : (
               <>
                 <Text style={styles.damageTitle}>Report Damage</Text>
+                <Text style={styles.damageHint}>Select severity</Text>
+                <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
+                  {["minor", "major", "critical"].map((sev) => (
+                    <TouchableOpacity
+                      key={sev}
+                      style={[
+                        styles.severityBtn,
+                        damageSeverity === sev && { backgroundColor: "#E53935", borderColor: "#E53935" },
+                      ]}
+                      onPress={() => setDamageSeverity(sev)}
+                    >
+                      <Text style={[styles.severityText, damageSeverity === sev && { color: "#fff" }]}>
+                        {sev[0].toUpperCase() + sev.slice(1)}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
                 <TextInput
                   style={styles.damageInput}
                   placeholder="Describe the damage..."
@@ -201,6 +241,16 @@ export default function RequestDetailScreen() {
             <Text style={styles.deniedText}>{request.denied_reason}</Text>
           </View>
         )}
+
+        {/* Cancel (only when pending) */}
+        {request.status === "pending" && (
+          <View style={styles.cancelCard}>
+            <Text style={styles.cancelTitle}>Changed your mind?</Text>
+            <TouchableOpacity style={styles.cancelActionBtn} onPress={handleCancel} disabled={cancelling}>
+              {cancelling ? <ActivityIndicator color="#E74C3C" /> : <Text style={styles.cancelActionText}>Cancel Request</Text>}
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -232,6 +282,8 @@ const styles = StyleSheet.create({
   damageTitle: { fontSize: 14, fontWeight: "bold", color: "#C62828" },
   damageHint: { fontSize: 12, color: "#B0B5C8", marginTop: 4 },
   damageInput: { backgroundColor: "#fff", borderRadius: 8, borderWidth: 1, borderColor: "#E53935", padding: 10, fontSize: 14, minHeight: 60, marginTop: 8 },
+  severityBtn: { flex: 1, height: 40, borderRadius: 8, borderWidth: 1.5, borderColor: "#E0B4B4", backgroundColor: "#FFF0F0", justifyContent: "center", alignItems: "center" },
+  severityText: { fontSize: 13, fontWeight: "bold", color: "#C62828" },
   cancelBtn: { flex: 1, height: 44, borderRadius: 10, backgroundColor: "#E0E0E0", justifyContent: "center", alignItems: "center" },
   reportBtn: { flex: 1, height: 44, borderRadius: 10, backgroundColor: "#E53935", justifyContent: "center", alignItems: "center" },
   deniedCard: { margin: 16, backgroundColor: "#FFF5F5", borderRadius: 14, padding: 16, borderLeftWidth: 4, borderLeftColor: "#E74C3C" },
@@ -242,4 +294,11 @@ const styles = StyleSheet.create({
   returnHint: { fontSize: 12, color: "#64748B", marginTop: 4 },
   returnBtn: { marginTop: 12, backgroundColor: "#0ea5a0", height: 46, borderRadius: 10, justifyContent: "center", alignItems: "center" },
   returnBtnText: { color: "#fff", fontSize: 14, fontWeight: "bold" },
+  cancelCard: { margin: 16, backgroundColor: "#FFF8F8", borderRadius: 14, padding: 16, borderLeftWidth: 4, borderLeftColor: "#E74C3C" },
+  cancelTitle: { fontSize: 14, fontWeight: "bold", color: "#C62828" },
+  cancelActionBtn: {
+    marginTop: 10, height: 46, borderRadius: 10, borderWidth: 1.5, borderColor: "#E74C3C",
+    justifyContent: "center", alignItems: "center",
+  },
+  cancelActionText: { color: "#E74C3C", fontSize: 14, fontWeight: "bold" },
 });

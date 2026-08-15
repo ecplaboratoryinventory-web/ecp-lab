@@ -159,7 +159,21 @@ Confirmed against `CAPSTONE-ALIGNMENT.md`. These remain open:
 20. 🟡 Faculty approval notifications ✅ (web+mobile, `create_borrow_notification` RPC); mobile deep-links still pending
 
 ### Priority 5 — Polish
-21. Fix 58 lint errors
-22. Date pickers + validation in borrow forms
-23. Replace `Alert.prompt` (iOS-only)
+21. ✅ Fix lint errors — 0 errors / 50 warnings (Aug 15)
+22. ✅ Date pickers + validation in borrow forms (native `@react-native-community/datetimepicker`, min return date)
+23. ✅ Replace `Alert.prompt` (iOS-only) — cross-platform deny modal
 24. ~~Profile: change-password, delete-account, picture upload~~ ✅ done on mobile (student+faculty) + web faculty current-password check (Aug 14)
+
+---
+
+## 🗓️ Future Feature Requests (NOT now)
+
+- **QR code generation** (PLAN Phase 3 spec: download QR label per equipment) — explicitly deferred by owner. Documented for later, not scheduled.
+
+## 🧍 User-End Backlog (require manual action — do LAST)
+
+These cannot be done from code; they need the project owner in the dashboards/CLI:
+
+1. **Run `npx eas init` in `mobile/`** to get a real EAS `projectId` and update `mobile/app.json:12` (currently `00000000-...`). Until then `mobile/lib/push.ts` returns null and **push notifications will not register tokens**.
+2. **Rotate Cloudinary API secret** (in git history `2dfdefb`) and **rotate MySQL password** (git history `90f20f9`); update `CLOUDINARY_API_SECRET` / `MYSQL_*` envs after rotation.
+3. Optional hardening follow-ups if desired: BFF adoption in mobile (use `EXPO_PUBLIC_API_URL` for writes per PLAN decision #2).

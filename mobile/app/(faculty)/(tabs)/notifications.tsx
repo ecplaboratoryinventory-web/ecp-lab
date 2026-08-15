@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator, Animated } from "react-native";
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator, Animated, RefreshControl } from "react-native";
 import { supabase } from "@/lib/supabase";
+import { useRouter } from "expo-router";
 
 function SkeletonBlock({ style }: { style: any }) {
   const opacity = useRef(new Animated.Value(0.3)).current;
@@ -18,17 +19,20 @@ function SkeletonBlock({ style }: { style: any }) {
 }
 
 export default function FacultyNotificationsScreen() {
+  const router = useRouter();
   const [notifs, setNotifs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetch = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data } = await supabase.from("notifications").select("*").or(`user_id.eq.${user.id},role.eq.faculty`).order("created_at", { ascending: false });
+    setNotifs(data || []);
+    setLoading(false);
+  };
 
   useEffect(() => {
-    const fetch = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data } = await supabase.from("notifications").select("*").or(`user_id.eq.${user.id},role.eq.faculty`).order("created_at", { ascending: false });
-      setNotifs(data || []);
-      setLoading(false);
-    };
     fetch();
 
     let channel: any;
@@ -53,6 +57,33 @@ export default function FacultyNotificationsScreen() {
       if (channel) supabase.removeChannel(channel);
     };
   }, []);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetch();
+    setRefreshing(false);
+  };
+
+  const markRead = async (id: string) => {
+    await supabase.from("notifications").update({ is_read: true }).eq("id", id);
+    setNotifs((prev) => prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)));
+  };
+
+  const markAllRead = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    await supabase.from("notifications").update({ is_read: true }).eq("user_id", user.id).eq("is_read", false);
+    setNotifs((prev) => prev.map((n) => ({ ...n, is_read: true })));
+  };
+
+  const openItem = (item: any) => {
+    markRead(item.id);
+    if (item.reference_type === "borrow_request" && item.reference_id) {
+      router.push("/(faculty)/(tabs)/approvals");
+    } else if (item.type === "announcement") {
+      router.push("/(faculty)/(tabs)/home");
+    }
+  };
 
   const getIcon = (item: any) => {
     if (item.type === "borrow_status") {
@@ -91,6 +122,11 @@ export default function FacultyNotificationsScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Notifications</Text>
+        {notifs.length > 0 && (
+          <TouchableOpacity onPress={markAllRead}>
+            <Text style={styles.markAll}>Mark all as read</Text>
+          </TouchableOpacity>
+        )}
       </View>
       {notifs.length === 0 ? (
         <View style={styles.empty}>
@@ -101,15 +137,17 @@ export default function FacultyNotificationsScreen() {
         <FlatList
           data={notifs}
           contentContainerStyle={{ padding: 8 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#1A2980"]} />}
           renderItem={({ item }) => (
-            <View style={styles.card}>
+            <TouchableOpacity style={[styles.card, item.is_read && styles.cardRead]} onPress={() => openItem(item)}>
               <View style={styles.accent} />
               <View style={{ flex: 1 }}>
-                <Text style={styles.notifTitle}>{getIcon(item)} {item.title}</Text>
-                <Text style={styles.notifMsg}>{item.message}</Text>
+                <Text style={[styles.notifTitle, item.is_read && styles.textRead]}>{getIcon(item)} {item.title}</Text>
+                <Text style={[styles.notifMsg, item.is_read && styles.textRead]}>{item.message}</Text>
                 <Text style={styles.notifTime}>{new Date(item.created_at).toLocaleString()}</Text>
               </View>
-            </View>
+              {!item.is_read && <View style={styles.unreadDot} />}
+            </TouchableOpacity>
           )}
           keyExtractor={(item) => item.id}
         />
@@ -120,13 +158,17 @@ export default function FacultyNotificationsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F4F7FC" },
-  header: { backgroundColor: "#1A2980", padding: 20, paddingTop: 50 },
+  header: { backgroundColor: "#1A2980", padding: 20, paddingTop: 50, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   title: { color: "#fff", fontSize: 22, fontWeight: "bold" },
+  markAll: { color: "#9FE8F5", fontSize: 13, fontWeight: "600" },
   empty: { flex: 1, justifyContent: "center", alignItems: "center" },
   emptyText: { fontSize: 16, color: "#95A5A6", marginTop: 8 },
-  card: { backgroundColor: "#fff", borderRadius: 12, padding: 14, marginBottom: 6, flexDirection: "row", elevation: 2 },
-  accent: { width: 4, borderRadius: 2, backgroundColor: "#1A2980", marginRight: 10 },
+  card: { backgroundColor: "#fff", borderRadius: 12, padding: 14, marginBottom: 6, flexDirection: "row", alignItems: "flex-start", elevation: 2 },
+  cardRead: { opacity: 0.6 },
+  accent: { width: 4, borderRadius: 2, backgroundColor: "#1A2980", marginRight: 10, alignSelf: "stretch" },
   notifTitle: { fontSize: 15, fontWeight: "bold", color: "#2C3E50" },
   notifMsg: { fontSize: 13, color: "#7F8C8D", marginTop: 4 },
   notifTime: { fontSize: 12, color: "#95A5A6", marginTop: 4 },
+  textRead: { fontWeight: "normal", opacity: 0.7 },
+  unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#2196F3", marginTop: 6 },
 });

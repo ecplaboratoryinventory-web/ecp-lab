@@ -74,9 +74,11 @@ export default function BorrowPage() {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [userDept, setUserDept] = useState<string | null>(null);
+  const [maxItems, setMaxItems] = useState(5);
+  const [maxDuration, setMaxDuration] = useState(7);
 
   useEffect(() => {
-    const fetchDepartment = async () => {
+    const fetchProfile = async () => {
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -90,7 +92,22 @@ export default function BorrowPage() {
         setUserDept(profile.department);
       }
     };
-    fetchDepartment();
+    fetchProfile();
+  }, []);
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      const { data } = await supabase
+        .from("system_settings")
+        .select("max_items_per_borrow, borrow_duration_limit")
+        .eq("id", 1)
+        .single();
+      if (data) {
+        setMaxItems(data.max_items_per_borrow ?? 5);
+        setMaxDuration(data.borrow_duration_limit ?? 7);
+      }
+    };
+    fetchSettings();
   }, []);
 
   const fetchEquipment = useCallback(async () => {
@@ -186,6 +203,9 @@ export default function BorrowPage() {
     if (selectedItems.length === 0) {
       newErrors.items = "Select at least one equipment";
     }
+    if (selectedItems.length > maxItems) {
+      newErrors.items = `You can borrow at most ${maxItems} items per request`;
+    }
     if (!purpose.trim()) {
       newErrors.purpose = "Purpose is required";
     }
@@ -197,6 +217,17 @@ export default function BorrowPage() {
     }
     if (borrowDate && returnDate && returnDate < borrowDate) {
       newErrors.returnDate = "Return date must be on or after borrow date";
+    }
+    if (
+      borrowDate &&
+      returnDate &&
+      returnDate >= borrowDate &&
+      Math.ceil(
+        (new Date(returnDate).getTime() - new Date(borrowDate).getTime()) /
+          (1000 * 60 * 60 * 24)
+      ) > maxDuration
+    ) {
+      newErrors.returnDate = `Return date cannot exceed ${maxDuration} days from borrow date`;
     }
     if (selectedItems.some((item) => item.quantity < 1)) {
       newErrors.quantity = "Each item must have at least quantity 1";
@@ -565,6 +596,9 @@ export default function BorrowPage() {
               <h3 className="mb-4 flex items-center gap-2 text-base font-semibold text-navy">
                 <Monitor className="h-4 w-4 text-teal" />
                 Selected Equipment
+                <span className="ml-auto rounded-full bg-teal-light px-2.5 py-0.5 text-xs font-semibold text-teal">
+                  Max {maxItems} items · {maxDuration} day limit
+                </span>
               </h3>
 
               <div className="space-y-4">
