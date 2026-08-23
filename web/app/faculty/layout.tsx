@@ -1,29 +1,51 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
-  LayoutDashboard,
-  HandHelping,
-  GraduationCap,
-  User,
   LogOut,
   FlaskConical,
-  ScrollText,
   Bell,
-  CalendarDays,
+  ChevronDown,
+  BellOff,
+  CheckCheck,
 } from "lucide-react";
+import Link from "next/link";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 
+interface NotifItem {
+  id: string;
+  title: string;
+  message: string;
+  is_read: boolean;
+  created_at: string;
+}
+
+function getRelativeTime(dateStr: string): string {
+  const now = Date.now();
+  const date = new Date(dateStr).getTime();
+  const diffMs = now - date;
+  const diffMin = Math.floor(diffMs / 60000);
+  const diffHrs = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+  if (diffMs < 60000) return "Just now";
+  if (diffMin < 60) return `${diffMin}m ago`;
+  if (diffHrs < 24) return `${diffHrs}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
 export default function FacultyLayout({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
   const [userName, setUserName] = useState("");
   const [userDept, setUserDept] = useState("");
   const [checking, setChecking] = useState(true);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notifications, setNotifications] = useState<NotifItem[]>([]);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<(() => void) | null>(null);
@@ -54,13 +76,63 @@ export default function FacultyLayout({ children }: { children: React.ReactNode 
     fetch();
   }, []);
 
-  if (checking) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f2f5f9]">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-teal border-t-transparent" />
-      </div>
-    );
-  }
+  const fetchNotifications = useCallback(async () => {
+    const { data: authData } = await supabase.auth.getUser();
+    const userId = authData.user?.id;
+    if (!userId) return;
+
+    const { data } = await supabase
+      .from("notifications")
+      .select("id, title, message, is_read, created_at")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(8);
+
+    setNotifications((data as NotifItem[]) || []);
+
+    const { count } = await supabase
+      .from("notifications")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("is_read", false);
+
+    setUnreadCount(count || 0);
+  }, []);
+
+  useEffect(() => {
+    if (!checking) fetchNotifications();
+  }, [checking, fetchNotifications]);
+
+  useEffect(() => {
+    if (checking) return;
+    const channel = supabase
+      .channel("faculty-notifications")
+      .on("postgres_changes", { event: "*", schema: "public", table: "notifications" }, () => fetchNotifications())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [checking, fetchNotifications]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setNotifOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleMarkAllRead = async () => {
+    const { data: authData } = await supabase.auth.getUser();
+    const userId = authData.user?.id;
+    if (!userId) return;
+    await supabase
+      .from("notifications")
+      .update({ is_read: true })
+      .eq("user_id", userId)
+      .eq("is_read", false);
+    fetchNotifications();
+  };
 
   const handleLogout = () => {
     withConfirm(async () => {
@@ -69,125 +141,104 @@ export default function FacultyLayout({ children }: { children: React.ReactNode 
     });
   };
 
-  const mainNav = [
-    { title: "Dashboard", href: "/faculty/dashboard", icon: LayoutDashboard },
-    { title: "Equipment", href: "/faculty/equipment", icon: FlaskConical },
-    { title: "Borrow Item", href: "/faculty/borrow", icon: HandHelping },
-    { title: "Student Borrows", href: "/faculty/approvals", icon: GraduationCap },
-    { title: "History", href: "/faculty/history", icon: ScrollText },
-    { title: "Schedule", href: "/faculty/schedule", icon: CalendarDays },
-    { title: "Announcements", href: "/faculty/announcements", icon: Bell },
-  ];
-
-  const accountNav = [
-    { title: "My Profile", href: "/faculty/profile", icon: User },
-  ];
+  if (checking) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#f2f5f9]">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-teal border-t-transparent" />
+      </div>
+    );
+  }
 
   return (
     <>
-      <div style={{ fontFamily: "'DM Sans', sans-serif" }}>
-      <style>{`
-        *, *::before, *::after { box-sizing: border-box; }
-        body { margin: 0; }
-      `}</style>
+      <div className="min-h-screen bg-[#f2f5f9]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+        <style>{`
+          *, *::before, *::after { box-sizing: border-box; }
+          body { margin: 0; }
+        `}</style>
 
-      {/* Sidebar */}
-      <aside className="fixed left-0 top-0 z-30 flex h-screen w-[268px] flex-col shadow-lg" style={{ background: "#1b2b40" }}>
-        {/* Branding */}
-        <div className="shrink-0 border-b border-white/[0.07] px-5 py-[18px]">
-          <div className="flex items-center gap-2.5">
+        {/* Header — full width, no sidebar */}
+        <header className="sticky top-0 z-30 flex h-[62px] items-center justify-between border-b border-[#dde4ec] bg-white px-6 shadow-sm">
+          <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#0ea5a0]">
               <FlaskConical className="h-5 w-5 text-white" />
             </div>
             <div style={{ lineHeight: 1.2 }}>
-              <strong className="block text-[23px] font-bold tracking-tight text-white">ECP Lab</strong>
-              <span className="text-[0.67rem] text-white/50">Faculty Portal</span>
+              <strong className="block text-[0.95rem] font-bold tracking-tight text-[#1b2b40]">ECP Lab</strong>
+              <span className="text-[0.62rem] text-[#8fa1b3]">Faculty Portal</span>
             </div>
           </div>
-        </div>
 
-        {/* Nav */}
-        <nav className="flex-1 overflow-y-auto px-4 py-3">
-          <div className="mb-2 px-2.5 text-[0.62rem] font-bold uppercase tracking-[0.08em] text-white/30">Main Menu</div>
-          {mainNav.map((item) => {
-            const active = pathname === item.href || pathname.startsWith(item.href + "/");
-            return (
-              <div key={item.href} className="mb-[3px]">
-                <Link
-                  href={item.href}
-                  className={`flex items-center gap-2.5 rounded-lg px-3.5 py-2.5 text-[0.85rem] font-medium tracking-wide no-underline transition-all ${
-                    active
-                      ? "bg-white/[0.08] text-white shadow-sm"
-                      : "text-white/65 hover:bg-white/[0.05] hover:text-white hover:pl-4"
-                  }`}
-                >
-                  <item.icon className="h-[18px] w-[18px] shrink-0" />
-                  <span>{item.title}</span>
-                </Link>
-              </div>
-            );
-          })}
+          <div className="flex items-center gap-3">
+            {/* Notification Bell + Dropdown */}
+            <div className="relative" ref={notifRef}>
+              <button
+                onClick={() => setNotifOpen(!notifOpen)}
+                className="relative rounded-full p-2 text-[#1b2b40] hover:bg-[#f0f0f0] transition-colors"
+              >
+                <Bell className="h-5 w-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute right-0.5 top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </span>
+                )}
+              </button>
 
-          <div className="my-3 h-px bg-white/[0.06]" />
-          <div className="mb-2 px-2.5 text-[0.62rem] font-bold uppercase tracking-[0.08em] text-white/30">Account</div>
-          {accountNav.map((item) => {
-            const active = pathname === item.href;
-            return (
-              <div key={item.href} className="mb-[3px]">
-                <Link
-                  href={item.href}
-                  className={`flex items-center gap-2.5 rounded-lg px-3.5 py-2.5 text-[0.85rem] font-medium tracking-wide no-underline transition-all ${
-                    active
-                      ? "bg-white/[0.08] text-white shadow-sm"
-                      : "text-white/65 hover:bg-white/[0.05] hover:text-white hover:pl-4"
-                  }`}
-                >
-                  <item.icon className="h-[18px] w-[18px] shrink-0" />
-                  <span>{item.title}</span>
-                </Link>
-              </div>
-            );
-          })}
-
-          <div className="mb-[3px]">
-            <button
-              onClick={handleLogout}
-              className="flex w-full items-center gap-2.5 rounded-lg px-3.5 py-2.5 text-[0.85rem] font-medium tracking-wide text-white/50 no-underline transition-all hover:bg-red-500/10 hover:text-red-400"
-            >
-              <LogOut className="h-[18px] w-[18px] shrink-0" />
-              <span>Logout</span>
-            </button>
-          </div>
-        </nav>
-
-        {/* User info at bottom */}
-        <div className="shrink-0 border-t border-white/[0.07] bg-black/20 p-4">
-          <div className="flex items-center gap-3 rounded-lg bg-white/[0.08] p-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#0ea5a0] text-sm font-bold text-white">
-              {userName.charAt(0).toUpperCase()}
+              {notifOpen && (
+                <div className="absolute right-0 top-full mt-2 w-[360px] rounded-xl border border-[#dde4ec] bg-white shadow-xl z-50">
+                  <div className="flex items-center justify-between border-b border-[#dde4ec] px-4 py-3">
+                    <h4 className="m-0 text-sm font-bold text-[#1b2b40]">Notifications</h4>
+                    {unreadCount > 0 && (
+                      <button
+                        onClick={handleMarkAllRead}
+                        className="flex items-center gap-1 text-xs font-semibold text-[#0ea5a0] hover:underline"
+                      >
+                        <CheckCheck className="h-3 w-3" /> Mark all read
+                      </button>
+                    )}
+                  </div>
+                  <div className="max-h-[320px] overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <div className="flex flex-col items-center py-8 text-center">
+                        <BellOff className="h-8 w-8 text-[#8fa1b3]" />
+                        <p className="mt-2 text-xs text-[#8fa1b3]">No notifications yet</p>
+                      </div>
+                    ) : (
+                      notifications.map((n) => (
+                        <div
+                          key={n.id}
+                          className={`border-b border-[#f0f0f0] px-4 py-3 transition-colors hover:bg-[#f8fafb] ${
+                            !n.is_read ? "bg-[#e0f7f6]/30" : ""
+                          }`}
+                        >
+                          <p className={`text-xs ${!n.is_read ? "font-bold text-[#1b2b40]" : "font-medium text-[#4a5e74]"}`}>
+                            {n.title}
+                          </p>
+                          {n.message && (
+                            <p className="mt-0.5 text-[11px] text-[#8fa1b3] line-clamp-1">
+                              {n.message.length > 60 ? n.message.slice(0, 60) + "..." : n.message}
+                            </p>
+                          )}
+                          <p className="mt-1 text-[10px] text-[#8fa1b3]/70">{getRelativeTime(n.created_at)}</p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  <div className="border-t border-[#dde4ec] px-4 py-2.5">
+                    <Link
+                      href="/notifications"
+                      onClick={() => setNotifOpen(false)}
+                      className="block text-center text-xs font-semibold text-[#0ea5a0] hover:underline"
+                    >
+                      View All Notifications
+                    </Link>
+                  </div>
+                </div>
+              )}
             </div>
-            <div className="min-w-0 flex-1" style={{ lineHeight: 1.3 }}>
-              <div className="truncate text-[0.82rem] font-semibold text-white">{userName}</div>
-              <div className="text-[0.67rem] text-white/50">{userDept || "Faculty"}</div>
-            </div>
-          </div>
-        </div>
 
-        {/* Footer */}
-        <div className="shrink-0 px-4 py-3 text-center text-[0.65rem] text-white/20">
-          ECP Lab v2.0 · {new Date().getFullYear()}
-        </div>
-      </aside>
-
-      {/* Main Content */}
-      <div className="ml-[268px] flex min-h-screen flex-col bg-[#f2f5f9]">
-        {/* Topbar */}
-        <header className="sticky top-0 z-20 flex h-[62px] items-center justify-between border-b border-[#dde4ec] bg-white px-6 shadow-sm">
-          <h4 className="m-0 text-base font-bold text-[#1b2b40]">
-            {mainNav.find((n) => pathname.startsWith(n.href))?.title || "Faculty Portal"}
-          </h4>
-          <div className="flex items-center gap-2.5">
-            <div className="flex items-center gap-2.5 rounded-full border border-[#dde4ec] bg-white px-3 py-1.5 transition-colors hover:border-[#0ea5a0] hover:bg-[#e0f7f6]">
+            {/* User info */}
+            <div className="flex items-center gap-2.5 rounded-full border border-[#dde4ec] bg-white px-3 py-1.5">
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#0ea5a0] text-[0.85rem] font-bold text-white">
                 {userName.charAt(0).toUpperCase()}
               </div>
@@ -196,12 +247,21 @@ export default function FacultyLayout({ children }: { children: React.ReactNode 
                 <span className="block text-[0.67rem] text-[#8fa1b3]">{userDept || "Faculty"}</span>
               </div>
             </div>
+
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-1.5 rounded-lg border border-[#dde4ec] px-3 py-1.5 text-xs font-semibold text-[#4a5e74] hover:border-red-300 hover:bg-red-50 hover:text-red-500 transition-colors"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              Logout
+            </button>
           </div>
         </header>
 
-        <main className="flex-1 p-6">{children}</main>
+        {/* Main Content — full width */}
+        <main className="p-6">{children}</main>
       </div>
-    </div>
+
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}

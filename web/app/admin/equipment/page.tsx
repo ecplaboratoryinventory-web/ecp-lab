@@ -4,7 +4,6 @@ import { useEffect, useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "@/components/shared/toast";
 import { logActivity } from "@/lib/logger";
-import { uploadImage } from "@/lib/cloudinary";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -21,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Search, Download, Upload, Pencil, Trash2, Microscope, PackageCheck, Clock, AlertTriangle, Loader2 } from "lucide-react";
+import { Plus, Search, Download, Upload, Pencil, Trash2, Microscope, PackageCheck, Clock, AlertTriangle } from "lucide-react";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 
 interface Equipment {
@@ -48,16 +47,26 @@ interface Category {
   name: string;
 }
 
+interface Subcategory {
+  id: string;
+  category_id: string;
+  name: string;
+}
+
+const CATEGORY_TABS = ["All", "Electronics", "Chemistry", "Physics"] as const;
+const CATEGORY_ORDER = ["Electronics", "Chemistry", "Physics"] as const;
+
 export default function EquipmentPage() {
   const supabase = createClient();
 
   const [equipment, setEquipment] = useState<Equipment[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("All");
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [stats, setStats] = useState({ total: 0, available: 0, borrowed: 0, maintenance: 0, needsReplacement: 0 });
@@ -81,24 +90,20 @@ export default function EquipmentPage() {
     name: "",
     serial_number: "",
     category_id: "",
+    subcategory_id: "",
     quantity: 1,
     description: "",
-    brand: "",
-    model: "",
-    location: "",
-    condition: "good",
-    purchase_date: "",
     status: "available",
-    subject_tags: [] as string[],
-    image_url: "",
   });
-  const [uploading, setUploading] = useState(false);
 
   const fetchData = async () => {
     let query = supabase.from("equipment").select("*, categories(name)");
 
     if (statusFilter !== "all") query = query.eq("status", statusFilter);
-    if (categoryFilter !== "all") query = query.eq("category_id", categoryFilter);
+    if (categoryFilter !== "All") {
+      const cat = categories.find((c) => c.name === categoryFilter);
+      if (cat) query = query.eq("category_id", cat.id);
+    }
     if (debouncedSearch) query = query.or(`name.ilike.%${debouncedSearch}%,serial_number.ilike.%${debouncedSearch}%`);
 
     const { data } = await query.order("name");
@@ -116,7 +121,9 @@ export default function EquipmentPage() {
 
   const fetchCategories = async () => {
     const { data } = await supabase.from("categories").select("*").order("name");
-    if (data) setCategories(data);
+    if (data) setCategories(data.filter((c: Category) => CATEGORY_ORDER.includes(c.name as typeof CATEGORY_ORDER[number])));
+    const { data: subs } = await supabase.from("subcategories").select("id, category_id, name").order("name");
+    if (subs) setSubcategories(subs);
   };
 
   useEffect(() => {
@@ -146,7 +153,7 @@ export default function EquipmentPage() {
 
   const openCreate = () => {
     setEditingId(null);
-    setForm({ name: "", serial_number: "", category_id: "", quantity: 1, description: "", brand: "", model: "", location: "", condition: "good", purchase_date: "", status: "available", subject_tags: [], image_url: "" });
+    setForm({ name: "", serial_number: "", category_id: "", subcategory_id: "", quantity: 1, description: "", status: "available" });
     setModalOpen(true);
   };
 
@@ -156,16 +163,10 @@ export default function EquipmentPage() {
       name: eq.name,
       serial_number: eq.serial_number || "",
       category_id: eq.category_id || "",
+      subcategory_id: (eq as unknown as { subcategory_id?: string }).subcategory_id || "",
       quantity: eq.quantity,
       description: eq.description || "",
-      brand: eq.brand || "",
-      model: eq.model || "",
-      location: eq.location || "",
-      condition: eq.condition || "good",
-      purchase_date: eq.purchase_date || "",
       status: eq.status,
-      subject_tags: eq.subject_tags || [],
-      image_url: eq.image_url || "",
     });
     setModalOpen(true);
   };
@@ -193,12 +194,10 @@ export default function EquipmentPage() {
 
     if (editingId) {
       const payload = { ...form };
-      if (form.condition === "needs_replacement") payload.status = "needs_replacement";
       await supabase.from("equipment").update(payload).eq("id", editingId);
       logActivity(undefined, "update", "equipment", editingId, { name: form.name });
     } else {
       const payload = { ...form };
-      if (form.condition === "needs_replacement") payload.status = "needs_replacement";
       const { data } = await supabase.from("equipment").insert(payload).select("id").single();
       logActivity(undefined, "create", "equipment", data?.id, { name: form.name });
     }
@@ -340,7 +339,7 @@ export default function EquipmentPage() {
   const statuses = [
     { value: "all", label: "All", count: stats.total },
     { value: "available", label: "Available", count: stats.available },
-    { value: "borrowed", label: "In Use", count: stats.borrowed },
+    { value: "borrowed", label: "Borrowed", count: stats.borrowed },
     { value: "under_maintenance", label: "Maintenance", count: stats.maintenance },
     { value: "needs_replacement", label: "Needs Replacement", count: stats.needsReplacement },
   ];
@@ -376,7 +375,7 @@ export default function EquipmentPage() {
           {[
             { label: "Total Equipment", value: stats.total, icon: Microscope, color: "#3b82f6" },
             { label: "Available", value: stats.available, icon: PackageCheck, color: "#10b981" },
-            { label: "In Use", value: stats.borrowed, icon: Clock, color: "#f59e0b" },
+            { label: "Borrowed", value: stats.borrowed, icon: Clock, color: "#f59e0b" },
             { label: "Needs Replacement", value: stats.needsReplacement, icon: AlertTriangle, color: "#f97316" },
             { label: "Under Maintenance", value: stats.maintenance, icon: AlertTriangle, color: "#ef4444" },
           ].map((s) => (
@@ -411,23 +410,15 @@ export default function EquipmentPage() {
         </div>
 
         <div className="mb-4 flex flex-wrap gap-2">
-          <button
-            onClick={() => setCategoryFilter("all")}
-            className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all ${
-              categoryFilter === "all" ? "border-teal bg-teal text-white" : "border-[#dde4ec] bg-white text-silver hover:border-teal hover:text-teal"
-            }`}
-          >
-            All Categories
-          </button>
-          {categories.map((c) => (
+          {CATEGORY_TABS.map((tab) => (
             <button
-              key={c.id}
-              onClick={() => setCategoryFilter(c.id)}
+              key={tab}
+              onClick={() => setCategoryFilter(tab)}
               className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all ${
-                categoryFilter === c.id ? "border-teal bg-teal text-white" : "border-[#dde4ec] bg-white text-silver hover:border-teal hover:text-teal"
+                categoryFilter === tab ? "border-teal bg-teal text-white" : "border-[#dde4ec] bg-white text-silver hover:border-teal hover:text-teal"
               }`}
             >
-              {c.name}
+              {tab}
             </button>
           ))}
         </div>
@@ -514,16 +505,15 @@ export default function EquipmentPage() {
             </DialogHeader>
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2">
-                <label className="text-xs font-medium text-slate">Name <span className="text-red-500">*</span></label>
+                <label className="text-xs font-medium text-slate">Item / Equipment Name <span className="text-red-500">*</span></label>
                 <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="mt-1 border-[#dde4ec]" />
               </div>
               <div>
-                <label className="text-xs font-medium text-slate">Serial Number</label>
-                <Input value={form.serial_number} onChange={(e) => setForm({ ...form, serial_number: e.target.value })} className="mt-1 border-[#dde4ec]" />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-slate">Category</label>
-                <Select value={form.category_id || undefined} onValueChange={(v) => setForm({ ...form, category_id: v || "" })}>
+                <label className="text-xs font-medium text-slate">Main Category <span className="text-red-500">*</span></label>
+                <Select
+                  value={form.category_id || undefined}
+                  onValueChange={(v) => setForm({ ...form, category_id: v || "", subcategory_id: "" })}
+                >
                   <SelectTrigger className="mt-1 border-[#dde4ec]">
                     <span>{form.category_id ? categories.find((c) => c.id === form.category_id)?.name || "Unknown" : "Select category..."}</span>
                   </SelectTrigger>
@@ -533,7 +523,28 @@ export default function EquipmentPage() {
                 </Select>
               </div>
               <div>
-                <label className="text-xs font-medium text-slate">Quantity <span className="text-red-500">*</span></label>
+                <label className="text-xs font-medium text-slate">Subcategory</label>
+                <Select
+                  value={form.subcategory_id || undefined}
+                  onValueChange={(v) => setForm({ ...form, subcategory_id: v || "" })}
+                  disabled={!form.category_id}
+                >
+                  <SelectTrigger className="mt-1 border-[#dde4ec]">
+                    <span>{form.subcategory_id ? subcategories.find((s) => s.id === form.subcategory_id)?.name || "Unknown" : "Select subcategory..."}</span>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {subcategories
+                      .filter((s) => s.category_id === form.category_id)
+                      .map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-slate">Serial / Tag Number</label>
+                <Input value={form.serial_number} onChange={(e) => setForm({ ...form, serial_number: e.target.value })} className="mt-1 border-[#dde4ec]" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-slate">Quantity / Stock <span className="text-red-500">*</span></label>
                 <Input type="number" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: +e.target.value })} className="mt-1 border-[#dde4ec]" />
               </div>
               <div>
@@ -548,93 +559,9 @@ export default function EquipmentPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <label className="text-xs font-medium text-slate">Brand</label>
-                <Input value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} className="mt-1 border-[#dde4ec]" />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-slate">Model</label>
-                <Input value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} className="mt-1 border-[#dde4ec]" />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-slate">Location</label>
-                <Input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} className="mt-1 border-[#dde4ec]" />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-slate">Condition</label>
-                <Select value={form.condition} onValueChange={(v) => setForm({ ...form, condition: v || "good" })}>
-                  <SelectTrigger className="mt-1 border-[#dde4ec]"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="good">Good</SelectItem>
-                    <SelectItem value="fair">Fair</SelectItem>
-                    <SelectItem value="poor">Poor</SelectItem>
-                    <SelectItem value="needs_replacement">Needs Replacement</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="text-xs font-medium text-slate">Purchase Date</label>
-                <Input type="date" value={form.purchase_date} onChange={(e) => setForm({ ...form, purchase_date: e.target.value })} className="mt-1 border-[#dde4ec]" />
-              </div>
               <div className="col-span-2">
                 <label className="text-xs font-medium text-slate">Description</label>
-                <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="mt-1 border-[#dde4ec]" />
-              </div>
-              <div className="col-span-2">
-                <label className="text-xs font-medium text-slate">Subject Tags (comma-separated)</label>
-                <Input
-                  value={form.subject_tags.join(", ")}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      subject_tags: e.target.value
-                        .split(",")
-                        .map((s) => s.trim())
-                        .filter(Boolean),
-                    })
-                  }
-                  className="mt-1 border-[#dde4ec]"
-                  placeholder="e.g., BSCpE, STEM, Chemistry, Physics"
-                />
-              </div>
-              <div className="col-span-2">
-                <label className="text-xs font-medium text-slate">Image</label>
-                <div className="mt-1 space-y-2">
-                  {form.image_url && (
-                    <div className="relative h-32 w-32 overflow-hidden rounded-lg border border-[#dde4ec]">
-                      <img src={form.image_url} alt="Preview" className="h-full w-full object-cover" />
-                    </div>
-                  )}
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="file"
-                      accept="image/*"
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        setUploading(true);
-                        try {
-                          const url = await uploadImage(file);
-                          setForm({ ...form, image_url: url });
-                          toast({ title: "Uploaded", description: "Image uploaded successfully.", variant: "success" });
-                        } catch {
-                          toast({ title: "Upload Failed", description: "Could not upload image.", variant: "error" });
-                        } finally {
-                          setUploading(false);
-                        }
-                      }}
-                      disabled={uploading}
-                      className="border-[#dde4ec]"
-                    />
-                    {uploading && <Loader2 className="h-5 w-5 animate-spin text-teal" />}
-                  </div>
-                  <Input
-                    value={form.image_url}
-                    onChange={(e) => setForm({ ...form, image_url: e.target.value })}
-                    placeholder="Or paste image URL..."
-                    className="border-[#dde4ec]"
-                  />
-                </div>
+                <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="mt-1 border-[#dde4ec]" placeholder="Brief description or notes" />
               </div>
             </div>
             <div className="flex justify-end gap-2 pt-2">
@@ -656,7 +583,7 @@ export default function EquipmentPage() {
           <DialogHeader>
             <DialogTitle className="text-navy">Import Equipment from CSV</DialogTitle>
             <DialogDescription className="text-silver">
-              Upload a CSV file with columns: name, category (required), plus quantity, serial_number, brand, model, location, condition, status, description
+              Upload a CSV file with columns: name, category (required), plus quantity, serial_number, subcategory, status, description
             </DialogDescription>
           </DialogHeader>
 

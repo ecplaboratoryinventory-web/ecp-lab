@@ -52,6 +52,7 @@ CREATE TABLE subcategories (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   category_id UUID NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
+  description TEXT,
   created_at TIMESTAMPTZ DEFAULT now()
 );
 

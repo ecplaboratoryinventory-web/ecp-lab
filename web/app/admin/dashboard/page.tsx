@@ -51,8 +51,8 @@ export default function AdminDashboardPage() {
 
     setStatusChart([
       { name: "Available", value: available || 0 },
-      { name: "In Use", value: borrowed || 0 },
-      { name: "Maintenance", value: maintenance || 0 },
+      { name: "Borrowed", value: borrowed || 0 },
+      { name: "Damaged", value: maintenance || 0 },
     ]);
 
     const { data: borrows } = await supabase.from("borrow_requests").select("*, users!borrow_requests_user_id_fkey(full_name)").order("created_at", { ascending: false }).limit(5);
@@ -106,8 +106,8 @@ export default function AdminDashboardPage() {
         {[
           { label: "Total Equipment", value: stats.total, icon: Microscope, color: "navy", bg: "#e8ecf2", fg: "#1b2b40" },
           { label: "Available", value: stats.available, icon: PackageCheck, color: "teal", bg: "#e0f7f6", fg: "#0ea5a0" },
-          { label: "In Use", value: stats.borrowed, icon: Clock, color: "amber", bg: "#fef3c7", fg: "#f59e0b" },
-          { label: "Maintenance", value: stats.maintenance, icon: AlertTriangle, color: "red", bg: "#fee2e2", fg: "#ef4444" },
+          { label: "Borrowed", value: stats.borrowed, icon: Clock, color: "amber", bg: "#fef3c7", fg: "#f59e0b" },
+          { label: "Damaged", value: stats.maintenance, icon: AlertTriangle, color: "red", bg: "#fee2e2", fg: "#ef4444" },
         ].map((s) => (
           <div key={s.label} className="group flex cursor-pointer items-center gap-3.5 rounded-xl border border-[#dde4ec] bg-white p-[18px_20px] shadow-sm no-underline transition-all hover:-translate-y-[3px] hover:shadow-md">
             {loading ? (

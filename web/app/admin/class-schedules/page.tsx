@@ -435,6 +435,7 @@ export default function ClassSchedulesPage() {
               <Select
                 value={form.faculty_id || undefined}
                 onValueChange={(v) => setForm({ ...form, faculty_id: v || "" })}
+                items={faculty.map((f) => ({ value: f.id, label: f.full_name }))}
               >
                 <SelectTrigger className="mt-1 border-[#dde4ec]">
                   <SelectValue placeholder="Select faculty..." />
