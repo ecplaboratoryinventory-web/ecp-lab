@@ -44,6 +44,7 @@ mobile/ios/
 next-env.d.ts
 
 test-credentials.txt
+.users.txt
 
 # Local dev tooling
 .opencode/

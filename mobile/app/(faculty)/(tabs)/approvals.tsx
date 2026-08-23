@@ -51,12 +51,25 @@ export default function FacultyApprovalsScreen() {
     const req = requests.find((r) => r.id === id);
     await supabase.from("borrow_requests").update({ status: "approved", approved_by: user.id, approved_at: new Date().toISOString() }).eq("id", id);
     if (req) {
+      const equipmentName = req.borrow_items?.[0]?.equipment?.name || "equipment";
+      const totalQty = req.borrow_items?.reduce((sum: number, bi: any) => sum + bi.quantity, 0) || 0;
+      const studentName = req.users?.full_name || "Student";
+      // Notify student
       await supabase.rpc("create_borrow_notification", {
         p_user_id: req.user_id,
         p_title: "Borrow Request Approved",
-        p_message: "Your borrow request has been approved by faculty.",
+        p_message: `Your request to borrow ${totalQty} ${equipmentName} has been approved.`,
         p_reference_id: id,
       });
+      // Notify admin
+      await supabase.rpc("notify_role_users" as never, {
+        p_role: "admin",
+        p_title: "Borrow Request Approved",
+        p_message: `${studentName}'s request for ${totalQty} ${equipmentName} has been approved by Faculty.`,
+        p_type: "borrow_status",
+        p_reference_type: "borrow_request",
+        p_reference_id: id,
+      } as never);
     }
     setRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status: "approved" } : r)));
     setActing(null);
@@ -72,12 +85,25 @@ export default function FacultyApprovalsScreen() {
     setActing(denyTarget.id);
     const reason = denyReason.trim() || "No reason given";
     await supabase.from("borrow_requests").update({ status: "denied", denied_reason: reason }).eq("id", denyTarget.id);
+    const equipmentName = denyTarget.borrow_items?.[0]?.equipment?.name || "equipment";
+    const totalQty = denyTarget.borrow_items?.reduce((sum: number, bi: any) => sum + bi.quantity, 0) || 0;
+    const studentName = denyTarget.users?.full_name || "Student";
+    // Notify student
     await supabase.rpc("create_borrow_notification", {
       p_user_id: denyTarget.user_id,
-      p_title: "Borrow Request Denied",
-      p_message: `Your borrow request was denied.${denyReason.trim() ? ` Reason: ${denyReason.trim()}` : ""}`,
+      p_title: "Borrow Request Rejected",
+      p_message: `Your request to borrow ${totalQty} ${equipmentName} has been rejected.`,
       p_reference_id: denyTarget.id,
     });
+    // Notify admin
+    await supabase.rpc("notify_role_users" as never, {
+      p_role: "admin",
+      p_title: "Borrow Request Rejected",
+      p_message: `${studentName}'s request for ${totalQty} ${equipmentName} has been rejected by Faculty.`,
+      p_type: "borrow_status",
+      p_reference_type: "borrow_request",
+      p_reference_id: denyTarget.id,
+    } as never);
     setRequests((prev) => prev.filter((r) => r.id !== denyTarget.id));
     setDenyTarget(null);
     setDenyReason("");

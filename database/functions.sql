@@ -106,6 +106,12 @@ BEGIN
           'A faculty member has submitted a borrow request (auto-approved).',
           'system', 'borrow_request', v_request_id);
 
+  -- Also notify faculty role
+  INSERT INTO notifications (role, title, message, type, reference_type, reference_id)
+  VALUES ('faculty', 'New Faculty Borrow Request',
+          'A faculty member has submitted a borrow request (auto-approved).',
+          'system', 'borrow_request', v_request_id);
+
   RETURN v_request_id;
 END;
 $$;
@@ -171,6 +177,12 @@ BEGIN
   INSERT INTO notifications (role, title, message, type, reference_type, reference_id)
   VALUES ('admin', 'Equipment Returned',
           'Equipment has been returned.',
+          'borrow_status', 'borrow_request', p_borrow_request_id);
+
+  -- Also notify the borrower
+  INSERT INTO notifications (user_id, title, message, type, reference_type, reference_id)
+  VALUES (v_user_id, 'Equipment Returned',
+          'Your equipment has been successfully returned.',
           'borrow_status', 'borrow_request', p_borrow_request_id);
 
   RETURN true;
@@ -337,6 +349,12 @@ BEGIN
     VALUES
       (v_request_id, v_eq_id, v_qty, 0, v_item->>'notes');
   END LOOP;
+
+  -- Notify student (confirmation)
+  INSERT INTO notifications (user_id, title, message, type, reference_type, reference_id)
+  VALUES (auth.uid(), 'Borrow Request Submitted',
+          'Your borrow request has been submitted successfully and is pending faculty review.',
+          'borrow_status', 'borrow_request', v_request_id);
 
   RETURN v_request_id;
 END;

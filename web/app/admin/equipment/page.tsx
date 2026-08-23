@@ -69,7 +69,7 @@ export default function EquipmentPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>("All");
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [stats, setStats] = useState({ total: 0, available: 0, borrowed: 0, maintenance: 0, needsReplacement: 0 });
+  const [stats, setStats] = useState({ total: 0, available: 0, borrowed: 0, damaged: 0 });
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<(() => void) | null>(null);
@@ -112,10 +112,8 @@ export default function EquipmentPage() {
     const { count: total } = await supabase.from("equipment").select("*", { count: "exact", head: true });
     const { count: available } = await supabase.from("equipment").select("*", { count: "exact", head: true }).eq("status", "available");
     const { count: borrowed } = await supabase.from("equipment").select("*", { count: "exact", head: true }).eq("status", "borrowed");
-    const { count: maintenance } = await supabase.from("equipment").select("*", { count: "exact", head: true }).eq("status", "under_maintenance");
-
-    const { count: needsReplacement } = await supabase.from("equipment").select("*", { count: "exact", head: true }).eq("status", "needs_replacement");
-    setStats({ total: total || 0, available: available || 0, borrowed: borrowed || 0, maintenance: maintenance || 0, needsReplacement: needsReplacement || 0 });
+    const { count: damaged } = await supabase.from("equipment").select("*", { count: "exact", head: true }).eq("status", "damaged");
+    setStats({ total: total || 0, available: available || 0, borrowed: borrowed || 0, damaged: damaged || 0 });
     setLoading(false);
   };
 
@@ -340,8 +338,7 @@ export default function EquipmentPage() {
     { value: "all", label: "All", count: stats.total },
     { value: "available", label: "Available", count: stats.available },
     { value: "borrowed", label: "Borrowed", count: stats.borrowed },
-    { value: "under_maintenance", label: "Maintenance", count: stats.maintenance },
-    { value: "needs_replacement", label: "Needs Replacement", count: stats.needsReplacement },
+    { value: "damaged", label: "Damaged", count: stats.damaged },
   ];
 
   return (
@@ -376,8 +373,7 @@ export default function EquipmentPage() {
             { label: "Total Equipment", value: stats.total, icon: Microscope, color: "#3b82f6" },
             { label: "Available", value: stats.available, icon: PackageCheck, color: "#10b981" },
             { label: "Borrowed", value: stats.borrowed, icon: Clock, color: "#f59e0b" },
-            { label: "Needs Replacement", value: stats.needsReplacement, icon: AlertTriangle, color: "#f97316" },
-            { label: "Under Maintenance", value: stats.maintenance, icon: AlertTriangle, color: "#ef4444" },
+            { label: "Damaged", value: stats.damaged, icon: AlertTriangle, color: "#ef4444" },
           ].map((s) => (
             <div key={s.label} className="ecp-stat-card">
               <div className="flex items-start justify-between">
@@ -473,10 +469,9 @@ export default function EquipmentPage() {
                         <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase ${
                           eq.status === "available" ? "bg-green-100 text-green-700" :
                           eq.status === "borrowed" ? "bg-blue-100 text-blue-700" :
-                          eq.status === "needs_replacement" ? "bg-orange-100 text-orange-700" :
-                          "bg-amber-100 text-amber-700"
+                          "bg-red-100 text-red-700"
                         }`}>
-                          {eq.status === "under_maintenance" ? "Maintenance" : eq.status === "needs_replacement" ? "Needs Replacement" : eq.status}
+                          {eq.status === "damaged" ? "Damaged" : eq.status}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-silver">{eq.location || "-"}</td>
@@ -554,8 +549,7 @@ export default function EquipmentPage() {
                   <SelectContent>
                     <SelectItem value="available">Available</SelectItem>
                     <SelectItem value="borrowed">Borrowed</SelectItem>
-                    <SelectItem value="under_maintenance">Under Maintenance</SelectItem>
-                    <SelectItem value="needs_replacement">Needs Replacement</SelectItem>
+                    <SelectItem value="damaged">Damaged</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

@@ -155,9 +155,9 @@ export async function GET(request: NextRequest) {
       color: "#f59e0b",
     },
     {
-      status: "under_maintenance",
-      label: "Maintenance",
-      count: eqStatusCounts["under_maintenance"] || 0,
+      status: "damaged",
+      label: "Damaged",
+      count: eqStatusCounts["damaged"] || 0,
       color: "#ef4444",
     },
   ];

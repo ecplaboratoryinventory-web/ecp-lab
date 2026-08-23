@@ -29,6 +29,8 @@ import {
   Check,
   Loader2,
 } from "lucide-react";
+import { adminNotifications, studentNotifications, facultyNotifications } from "@/lib/notification-templates";
+import { notifyRole } from "@/lib/notifications";
 
 interface User {
   id: string;
@@ -204,12 +206,20 @@ export default function ApprovalsPage() {
         description: `${req.users?.full_name || "Student"}'s request has been approved`,
         type: "success",
       });
+      const equipmentName = req.borrow_items?.[0]?.equipment?.name || "equipment";
+      const totalQty = req.borrow_items?.reduce((sum, bi) => sum + bi.quantity, 0) || 0;
+      const studentName = req.users?.full_name || "Student";
+      // Notify student
+      const studentMsg = studentNotifications.borrowApproved(totalQty, equipmentName);
       await supabase.rpc("create_borrow_notification", {
         p_user_id: req.user_id,
-        p_title: "Borrow Request Approved",
-        p_message: "Your borrow request has been approved by faculty.",
+        p_title: studentMsg.title,
+        p_message: studentMsg.message,
         p_reference_id: req.id,
       });
+      // Notify admin
+      const adminMsg = adminNotifications.borrowApproved(studentName, totalQty, equipmentName);
+      await notifyRole("admin", adminMsg.title, adminMsg.message, "borrow_status", "borrow_request", req.id);
     }
     setActionLoading(null);
     reload();
@@ -245,12 +255,20 @@ export default function ApprovalsPage() {
         description: `${denyTarget.users?.full_name || "Student"}'s request has been denied`,
         type: "success",
       });
+      const equipmentName = denyTarget.borrow_items?.[0]?.equipment?.name || "equipment";
+      const totalQty = denyTarget.borrow_items?.reduce((sum, bi) => sum + bi.quantity, 0) || 0;
+      const studentName = denyTarget.users?.full_name || "Student";
+      // Notify student
+      const studentMsg = studentNotifications.borrowRejected(totalQty, equipmentName);
       await supabase.rpc("create_borrow_notification", {
         p_user_id: denyTarget.user_id,
-        p_title: "Borrow Request Denied",
-        p_message: `Your borrow request was denied.${denyReason ? ` Reason: ${denyReason}` : ""}`,
+        p_title: studentMsg.title,
+        p_message: studentMsg.message,
         p_reference_id: denyTarget.id,
       });
+      // Notify admin
+      const adminMsg = adminNotifications.borrowRejected(studentName, totalQty, equipmentName);
+      await notifyRole("admin", adminMsg.title, adminMsg.message, "borrow_status", "borrow_request", denyTarget.id);
     }
     setActionLoading(null);
     setDenyOpen(false);

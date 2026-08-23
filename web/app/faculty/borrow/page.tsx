@@ -21,6 +21,7 @@ import {
   ClipboardList,
   X,
 } from "lucide-react";
+import { notifyRole } from "@/lib/notifications";
 
 interface Equipment {
   id: string;
@@ -309,6 +310,22 @@ export default function BorrowPage() {
       description: "Your request has been auto-approved",
       type: "success",
     });
+
+    // Notify admin of faculty borrow
+    const totalQty = selectedItems.reduce((sum, item) => sum + item.quantity, 0);
+    const eqSummary = selectedItems.length === 1
+      ? `${totalQty} ${selectedItems[0].equipment_name}`
+      : `${selectedItems.length} items`;
+    const { data: profile } = await supabase.from("users").select("full_name").eq("id", user.id).single();
+    const facultyName = profile?.full_name || "Faculty";
+    await notifyRole(
+      "admin",
+      "New Faculty Borrow Request",
+      `${facultyName} requested to borrow ${eqSummary}. (Auto-approved)`,
+      "borrow_status",
+      "borrow_request",
+      request.id
+    );
 
     setTimeout(() => {
       router.push("/faculty/dashboard");

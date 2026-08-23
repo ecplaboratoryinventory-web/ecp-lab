@@ -36,10 +36,7 @@ interface Category {
 const STATUS_VARIANTS: Record<string, { label: string; className: string }> = {
   available: { label: "Available", className: "bg-green-100 text-green-700" },
   borrowed: { label: "In Use", className: "bg-blue-100 text-blue-700" },
-  under_maintenance: {
-    label: "Maintenance",
-    className: "bg-amber-100 text-amber-700",
-  },
+  damaged: { label: "Damaged", className: "bg-red-100 text-red-700" },
 };
 
 export default function FacultyEquipmentPage() {

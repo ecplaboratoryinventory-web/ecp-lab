@@ -155,7 +155,7 @@ export default function HomeScreen() {
   const subjectChips = ["All Subjects", ...enrolledSubjects];
 
   const statusColor: Record<string, string> = {
-    available: "#2ECC71", borrowed: "#F39C12", under_maintenance: "#E74C3C", needs_replacement: "#9B59B6",
+    available: "#2ECC71", borrowed: "#F39C12", damaged: "#E74C3C",
   };
 
   const renderEquipment = ({ item }: { item: EquipmentItem }) => {

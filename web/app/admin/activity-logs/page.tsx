@@ -170,7 +170,7 @@ export default function ActivityLogsPage() {
       const counts: Record<string, number> = {
         available: 0,
         borrowed: 0,
-        under_maintenance: 0,
+        damaged: 0,
       };
       eqData.forEach((e) => {
         if (counts[e.status] !== undefined) {

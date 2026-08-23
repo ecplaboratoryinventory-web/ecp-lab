@@ -37,7 +37,7 @@ export default function AdminDashboardPage() {
     const { count: total } = await supabase.from("equipment").select("*", { count: "exact", head: true });
     const { count: available } = await supabase.from("equipment").select("*", { count: "exact", head: true }).eq("status", "available");
     const { count: borrowed } = await supabase.from("equipment").select("*", { count: "exact", head: true }).eq("status", "borrowed");
-    const { count: maintenance } = await supabase.from("equipment").select("*", { count: "exact", head: true }).eq("status", "under_maintenance");
+    const { count: maintenance } = await supabase.from("equipment").select("*", { count: "exact", head: true }).eq("status", "damaged");
     setStats({ total: total || 0, available: available || 0, borrowed: borrowed || 0, maintenance: maintenance || 0 });
 
     const { data: cats } = await supabase.from("categories").select("id, name");

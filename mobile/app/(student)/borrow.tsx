@@ -122,6 +122,42 @@ export default function BorrowScreen() {
       Alert.alert("Error", "Failed to submit borrow request.");
       return;
     }
+
+    // Send notifications after successful submission
+    const primaryItem = selectedItems[0];
+    const eqName = primaryItem?.name || "equipment";
+    const totalQty = items.reduce((sum, item) => sum + item.quantity, 0);
+
+    // Notify student (confirmation)
+    await supabase.rpc("create_borrow_notification" as never, {
+      p_user_id: (await supabase.auth.getUser()).data.user?.id,
+      p_title: "Borrow Request Submitted",
+      p_message: `Your request to borrow ${totalQty} ${eqName} has been submitted successfully.`,
+      p_reference_id: data,
+    } as never);
+
+    // Notify admin
+    const { data: profile } = await supabase.from("users").select("full_name").eq("id", (await supabase.auth.getUser()).data.user?.id).single();
+    const studentName = profile?.full_name || "Student";
+    await supabase.rpc("notify_role_users" as never, {
+      p_role: "admin",
+      p_title: "New Borrow Request",
+      p_message: `${studentName} requested to borrow ${totalQty} ${eqName}.`,
+      p_type: "borrow_status",
+      p_reference_type: "borrow_request",
+      p_reference_id: data,
+    } as never);
+
+    // Notify faculty
+    await supabase.rpc("notify_role_users" as never, {
+      p_role: "faculty",
+      p_title: "New Borrow Request",
+      p_message: `${studentName} requested to borrow ${totalQty} ${eqName}. Please review the request.`,
+      p_type: "borrow_status",
+      p_reference_type: "borrow_request",
+      p_reference_id: data,
+    } as never);
+
     Alert.alert("Success", "Borrow request submitted!", [
       { text: "OK", onPress: () => router.replace("/(student)/(tabs)/requests") },
     ]);

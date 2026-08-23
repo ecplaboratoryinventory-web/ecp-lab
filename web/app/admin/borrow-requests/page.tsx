@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { logActivity } from "@/lib/logger";
 import { createNotification, notifyRole } from "@/lib/notifications";
+import { adminNotifications, studentNotifications } from "@/lib/notification-templates";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -260,16 +261,27 @@ export default function BorrowRequestsPage() {
         .eq("id", id);
       const borrowRequest = requests.find((r) => r.id === id);
       const equipmentName = borrowRequest ? getEquipmentName(borrowRequest) : "Unknown equipment";
+      const totalQty = borrowRequest?.borrow_items?.reduce((sum, bi) => sum + bi.quantity, 0) || 0;
+      const studentName = borrowRequest?.users?.full_name || "Student";
       logActivity(undefined, "approve", "borrow_request", id, { status: "approved" });
       if (borrowRequest) {
+        // Notify student
+        const studentMsg = studentNotifications.borrowApproved(totalQty, equipmentName);
         await createNotification(
           borrowRequest.user_id,
-          "Borrow Request Approved",
-          `Your borrow request for ${equipmentName} has been approved.`,
+          studentMsg.title,
+          studentMsg.message,
           "borrow_status",
           "borrow_request",
           id
         );
+        // Notify admin (if approved by faculty)
+        if (borrowRequest.request_type === "student") {
+          const adminMsg = adminNotifications.borrowApproved(studentName, totalQty, equipmentName);
+          await notifyRole("admin", adminMsg.title, adminMsg.message, "borrow_status", "borrow_request", id);
+          // Notify faculty
+          await notifyRole("faculty", adminMsg.title, adminMsg.message, "borrow_status", "borrow_request", id);
+        }
       }
       fetchData();
     });
@@ -285,15 +297,24 @@ export default function BorrowRequestsPage() {
       })
       .eq("id", selectedRequest.id);
     const equipmentName = getEquipmentName(selectedRequest);
+    const totalQty = selectedRequest.borrow_items?.reduce((sum, bi) => sum + bi.quantity, 0) || 0;
+    const studentName = selectedRequest.users?.full_name || "Student";
     logActivity(undefined, "reject", "borrow_request", selectedRequest.id, { status: "denied", reason: rejectReason });
+    // Notify student
+    const studentMsg = studentNotifications.borrowRejected(totalQty, equipmentName);
     await createNotification(
       selectedRequest.user_id,
-      "Borrow Request Denied",
-      `Your borrow request for ${equipmentName} was denied.${rejectReason ? ` Reason: ${rejectReason}` : ""}`,
+      studentMsg.title,
+      studentMsg.message,
       "borrow_status",
       "borrow_request",
       selectedRequest.id
     );
+    // Notify admin
+    const adminMsg = adminNotifications.borrowRejected(studentName, totalQty, equipmentName);
+    await notifyRole("admin", adminMsg.title, adminMsg.message, "borrow_status", "borrow_request", selectedRequest.id);
+    // Notify faculty
+    await notifyRole("faculty", adminMsg.title, adminMsg.message, "borrow_status", "borrow_request", selectedRequest.id);
     setRejectOpen(false);
     setRejectReason("");
     setSelectedRequest(null);
@@ -377,15 +398,40 @@ export default function BorrowRequestsPage() {
         })
         .eq("id", selectedRequest.id);
       const equipmentName = getEquipmentName(selectedRequest);
+      const totalQty = selectedRequest.borrow_items?.reduce((sum, bi) => sum + bi.quantity, 0) || 0;
+      const studentName = selectedRequest.users?.full_name || "Student";
       logActivity(undefined, "return", "borrow_request", selectedRequest.id, { status: "returned" });
+      // Notify student
+      const studentMsg = studentNotifications.equipmentReturned(totalQty, equipmentName);
       await createNotification(
         selectedRequest.user_id,
-        "Equipment Returned",
-        `Your return for ${equipmentName} has been processed.`,
+        studentMsg.title,
+        studentMsg.message,
         "borrow_status",
         "borrow_request",
         selectedRequest.id
       );
+      // Notify admin
+      const adminMsg = adminNotifications.equipmentReturned(studentName, totalQty, equipmentName);
+      await notifyRole("admin", adminMsg.title, adminMsg.message, "borrow_status", "borrow_request", selectedRequest.id);
+      // Notify faculty
+      await notifyRole("faculty", adminMsg.title, adminMsg.message, "borrow_status", "borrow_request", selectedRequest.id);
+      // Check for damaged items and notify
+      const damagedItems = returnItems.filter((item) => item.condition === "damaged" || item.condition === "lost");
+      if (damagedItems.length > 0) {
+        const summary = damagedItems.map((item) => `${item.returningQuantity}x ${item.equipmentName}`).join(", ");
+        const damagedMsg = adminNotifications.equipmentDamaged(summary, studentName);
+        await notifyRole("admin", damagedMsg.title, damagedMsg.message, "damage_report", "borrow_request", selectedRequest.id);
+        const studentDamagedMsg = studentNotifications.equipmentDamaged(summary);
+        await createNotification(
+          selectedRequest.user_id,
+          studentDamagedMsg.title,
+          studentDamagedMsg.message,
+          "damage_report",
+          "borrow_request",
+          selectedRequest.id
+        );
+      }
     } else if (selectedRequest.status === "approved") {
       await supabase
         .from("borrow_requests")
@@ -421,7 +467,7 @@ export default function BorrowRequestsPage() {
     for (const item of damageItems) {
       const { data: report } = await supabase.from("damage_reports").insert({
         user_id: selectedRequest.user_id,
-        equipment_id: item.equipmentId,
+        equipment_id: (selectedRequest.borrow_items || []).find((bi) => bi.id === item.borrowItemId)?.equipment_id,
         borrow_request_id: selectedRequest.id,
         description: damageDescription,
         severity: damageSeverity,
@@ -429,14 +475,23 @@ export default function BorrowRequestsPage() {
       }).select("id").single();
       if (report) {
         logActivity(undefined, "damage_report", "damage_report", report.id, { severity: damageSeverity, equipment_id: item.equipmentId });
-        await notifyRole(
-          "admin",
-          "Damage Report Filed",
-          `${selectedRequest.users?.full_name || "Student"} reported damage on ${item.equipmentName}.`,
+        // Notify admin
+        const summary = damageItems.map((di) => di.equipmentName).join(", ");
+        const studentName = selectedRequest.users?.full_name || "Student";
+        const adminMsg = adminNotifications.equipmentDamaged(summary, studentName);
+        await notifyRole("admin", adminMsg.title, adminMsg.message, "damage_report", "damage_report", report.id);
+        // Notify student
+        const studentMsg = studentNotifications.equipmentDamaged(summary);
+        await createNotification(
+          selectedRequest.user_id,
+          studentMsg.title,
+          studentMsg.message,
           "damage_report",
           "damage_report",
           report.id
         );
+        // Notify faculty
+        await notifyRole("faculty", adminMsg.title, adminMsg.message, "damage_report", "damage_report", report.id);
       }
     }
 

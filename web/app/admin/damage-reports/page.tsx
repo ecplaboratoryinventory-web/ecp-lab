@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { createNotification, notifyRole } from "@/lib/notifications";
 
 interface DamageReport {
   id: string;
@@ -154,6 +155,17 @@ export default function DamageReportsPage() {
         resolved_by: userId,
       })
       .eq("id", selectedReport.id);
+
+    // Notify the student who reported the damage
+    const eqName = selectedReport.equipment?.name || "equipment";
+    await createNotification(
+      selectedReport.user_id,
+      "Damage Report Resolved",
+      `Your damage report for ${eqName} has been resolved.`,
+      "damage_report",
+      "damage_report",
+      selectedReport.id
+    );
 
     setResolveOpen(false);
     setSelectedReport(null);
