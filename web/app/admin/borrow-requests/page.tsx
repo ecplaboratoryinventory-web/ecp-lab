@@ -38,7 +38,6 @@ import {
   Users,
   RotateCcw,
   AlertTriangle,
-  Timer,
 } from "lucide-react";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 
@@ -96,7 +95,7 @@ interface DamageItemInfo {
 }
 
 type RequestType = "all" | "student" | "faculty";
-type StatusFilter = "all" | "pending" | "approved" | "borrowed" | "returned" | "denied" | "return_requested" | "damaged";
+type StatusFilter = "all" | "pending" | "approved" | "borrowed" | "returned" | "denied" | "return_requested" | "damaged" | "overdue";
 
 const STATUS_VARIANTS: Record<string, { label: string; className: string }> = {
   pending: { label: "Pending", className: "bg-amber-100 text-amber-700" },
@@ -114,6 +113,7 @@ const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: "pending", label: "Pending" },
   { value: "approved", label: "Approved" },
   { value: "borrowed", label: "Borrowed" },
+  { value: "overdue", label: "Overdue" },
   { value: "return_requested", label: "Return Requested" },
   { value: "returned", label: "Returned" },
   { value: "damaged", label: "Damaged" },
@@ -141,8 +141,6 @@ export default function BorrowRequestsPage() {
   const [damageDescription, setDamageDescription] = useState("");
   const [damageSeverity, setDamageSeverity] = useState<"minor" | "major" | "critical">("minor");
 
-  const [now, setNow] = useState<number>(0);
-
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<(() => void) | null>(null);
 
@@ -160,10 +158,20 @@ export default function BorrowRequestsPage() {
     return `${items.length} items`;
   };
 
-  useEffect(() => {
-    const interval = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(interval);
-  }, []);
+  const isActiveBorrow = (req: BorrowRequest) =>
+    req.status === "borrowed" || req.status === "approved";
+
+  const isPastDue = (req: BorrowRequest) => {
+    if (!isActiveBorrow(req) || !req.return_date) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const due = new Date(req.return_date);
+    due.setHours(0, 0, 0, 0);
+    return due.getTime() <= today.getTime();
+  };
+
+  const canReturnOrDamage = (req: BorrowRequest) =>
+    req.status === "return_requested" || isPastDue(req);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -180,6 +188,8 @@ export default function BorrowRequestsPage() {
     if (statusFilter !== "all") {
       if (statusFilter === "denied") {
         query = query.in("status", ["denied", "rejected"]);
+      } else if (statusFilter === "overdue") {
+        query = query.in("status", ["approved", "borrowed"]);
       } else {
         query = query.eq("status", statusFilter);
       }
@@ -201,7 +211,11 @@ export default function BorrowRequestsPage() {
       }
     }
 
-    const { data } = await query;
+    let { data } = await query;
+
+    if (statusFilter === "overdue" && data) {
+      data = (data as BorrowRequest[]).filter((r) => isPastDue(r));
+    }
 
     if (data) {
       setRequests(data as BorrowRequest[]);
@@ -541,17 +555,6 @@ export default function BorrowRequestsPage() {
     fetchData();
   };
 
-  const getStatusBadge = (status: string) => {
-    const config = STATUS_VARIANTS[status] || STATUS_VARIANTS.pending;
-    return (
-      <span
-        className={`inline-block rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase ${config.className}`}
-      >
-        {config.label}
-      </span>
-    );
-  };
-
   const getTypeBadge = (type: string) => {
     return (
       <span
@@ -580,54 +583,26 @@ export default function BorrowRequestsPage() {
     });
   };
 
-  const getCountdownDisplay = (borrowDateStr: string) => {
-    const borrowDate = new Date(borrowDateStr);
-    const deadline = new Date(borrowDate.getTime() + 3 * 60 * 60 * 1000);
-    const remaining = deadline.getTime() - now;
-    const overdue = remaining <= 0;
-    const absRemaining = Math.abs(remaining);
-    const hours = Math.floor(absRemaining / (60 * 60 * 1000));
-    const minutes = Math.floor((absRemaining % (60 * 60 * 1000)) / (60 * 1000));
-
-    let colorClass = "text-blue-600 font-medium";
-    let pulseClass = "";
-    if (overdue) {
-      colorClass = "text-red-800 font-bold";
-      pulseClass = "animate-pulse";
-    } else if (remaining < 30 * 60 * 1000) {
-      colorClass = "text-red-500 font-medium";
-    } else if (remaining < 60 * 60 * 1000) {
-      colorClass = "text-amber-500 font-medium";
+  const getStatusBadge = (req: BorrowRequest) => {
+    const status = req.status;
+    if (isPastDue(req)) {
+      return (
+        <span className="inline-block rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase bg-red-100 text-red-700">
+          Overdue
+        </span>
+      );
     }
-
-    return {
-      display: overdue ? `Overdue ${hours}h ${minutes}m` : `${hours}h ${minutes}m`,
-      colorClass,
-      pulseClass,
-    };
+    const config = STATUS_VARIANTS[status] || STATUS_VARIANTS.pending;
+    return (
+      <span
+        className={`inline-block rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase ${config.className}`}
+      >
+        {config.label}
+      </span>
+    );
   };
 
-  const overdueCount = requests.filter((req) => {
-    if (req.status !== "borrowed") return false;
-    const borrowDate = new Date(req.borrow_date);
-    const deadline = new Date(borrowDate.getTime() + 3 * 60 * 60 * 1000);
-    return now > deadline.getTime();
-  }).length;
-
-  const isActiveBorrow = (req: BorrowRequest) =>
-    req.status === "borrowed" || req.status === "approved";
-
-  const isPastDue = (req: BorrowRequest) => {
-    if (!isActiveBorrow(req) || !req.return_date) return false;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const due = new Date(req.return_date);
-    due.setHours(0, 0, 0, 0);
-    return due.getTime() <= today.getTime();
-  };
-
-  const canReturnOrDamage = (req: BorrowRequest) =>
-    req.status === "return_requested" || isPastDue(req);
+  const overdueCount = requests.filter((req) => isPastDue(req)).length;
 
   return (
     <>
@@ -734,7 +709,6 @@ export default function BorrowRequestsPage() {
                   <th className="px-4 py-3">Items</th>
                   <th className="px-4 py-3">Borrow Date</th>
                   <th className="px-4 py-3">Return Date</th>
-                  <th className="px-4 py-3">Timer</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
@@ -759,9 +733,6 @@ export default function BorrowRequestsPage() {
                         <Skeleton className="h-4 w-20" />
                       </td>
                       <td className="px-4 py-3">
-                        <Skeleton className="h-4 w-16" />
-                      </td>
-                      <td className="px-4 py-3">
                         <Skeleton className="h-5 w-20 rounded-full" />
                       </td>
                       <td className="px-4 py-3">
@@ -775,17 +746,12 @@ export default function BorrowRequestsPage() {
                   ))
                 ) : requests.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-12 text-center text-silver">
+                    <td colSpan={7} className="px-4 py-12 text-center text-silver">
                       No borrow requests found
                     </td>
                   </tr>
                 ) : (
                   requests.map((req) => {
-                    const cd =
-                      req.status === "borrowed"
-                        ? getCountdownDisplay(req.borrow_date)
-                        : null;
-
                     return (
                       <tr
                         key={req.id}
@@ -815,19 +781,7 @@ export default function BorrowRequestsPage() {
                         <td className="px-4 py-3 text-silver">
                           {formatDate(req.return_date)}
                         </td>
-                        <td className="px-4 py-3">
-                          {cd ? (
-                            <span
-                              className={`inline-flex items-center gap-1 text-xs ${cd.colorClass} ${cd.pulseClass}`}
-                            >
-                              <Timer className="h-3 w-3" />
-                              {cd.display}
-                            </span>
-                          ) : (
-                            <span className="text-xs text-silver">-</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">{getStatusBadge(req.status)}</td>
+                        <td className="px-4 py-3">{getStatusBadge(req)}</td>
                         <td className="px-4 py-3 text-right">
                           <div className="flex justify-end gap-1">
                             <Button
@@ -927,7 +881,7 @@ export default function BorrowRequestsPage() {
                   </div>
                   <div className="col-span-2">
                     <p className="text-xs font-medium uppercase text-silver">Status</p>
-                    <p className="mt-1">{getStatusBadge(selectedRequest.status)}</p>
+                    <p className="mt-1">{getStatusBadge(selectedRequest)}</p>
                   </div>
                   <div className="col-span-2">
                     <p className="text-xs font-medium uppercase text-silver">Purpose</p>
