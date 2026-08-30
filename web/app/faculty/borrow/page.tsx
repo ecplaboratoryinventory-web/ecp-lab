@@ -52,6 +52,12 @@ interface SelectedItem {
 
 const STEP_LABELS = ["Select Equipment", "Set Details", "Review & Submit"];
 
+// Categories offered in the filter, per faculty department.
+const DEPT_CATEGORY_FILTER: Record<string, string[]> = {
+  Engineering: [],
+  Science: ["Chemistry", "Physics"],
+};
+
 export default function BorrowPage() {
   const router = useRouter();
   const supabase = createClient();
@@ -341,6 +347,14 @@ export default function BorrowPage() {
     });
   };
 
+  const allowedDeptCategories: string[] | null = userDept
+    ? DEPT_CATEGORY_FILTER[userDept] ?? null
+    : null;
+  const visibleCategories =
+    allowedDeptCategories === null
+      ? categories
+      : categories.filter((c) => allowedDeptCategories.includes(c.name));
+
   return (
     <Toaster>
       <div>
@@ -400,7 +414,7 @@ export default function BorrowPage() {
               >
                 All Categories
               </button>
-              {categories.map((c) => (
+              {visibleCategories.map((c) => (
                 <button
                   key={c.id}
                   onClick={() => setCategoryFilter(c.id)}
@@ -444,7 +458,7 @@ export default function BorrowPage() {
                 <p className="text-silver">No equipment available</p>
               </div>
             ) : (
-              <div className="mx-auto grid max-w-6xl grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                 {equipment.map((eq) => {
                   const catName = eq.categories?.name || "";
                   const iconMap: Record<string, string> = {
@@ -461,18 +475,20 @@ export default function BorrowPage() {
                     <button
                       key={eq.id}
                       onClick={() => toggleSelect(eq)}
-                      className={`group mx-auto w-full max-w-[200px] overflow-hidden rounded-2xl border bg-white text-left shadow-sm transition-all hover:shadow-lg ${
+                      className={`group w-full overflow-hidden rounded-2xl border bg-white text-left shadow-sm transition-all hover:shadow-lg ${
                         isSelected ? "ring-2 ring-teal" : "border-[#dde4ec]"
                       }`}
                     >
-                      <div className="relative flex h-48 items-center justify-center bg-gradient-to-br from-[#7C74A4] to-[#4B436D] p-4">
+                      <div className="relative aspect-[4/3] w-full overflow-hidden bg-[#eef2f6]">
                         {eq.image_url ? (
-                          <img src={eq.image_url} alt={eq.name} className="max-h-[85%] max-w-[85%] object-contain drop-shadow-lg" />
+                          <img src={eq.image_url} alt={eq.name} className="h-full w-full object-cover" />
                         ) : (
-                          <span className="text-5xl drop-shadow-lg">{icon}</span>
+                          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#0ea5a0] to-[#0b857f]">
+                            <span className="text-6xl drop-shadow">{icon}</span>
+                          </div>
                         )}
                         {isSelected && (
-                          <div className="absolute inset-0 flex items-center justify-center bg-black/30 backdrop-blur-[2px]">
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/40">
                             <span className="flex h-12 w-12 items-center justify-center rounded-full bg-teal shadow-lg">
                               <Check className="h-6 w-6 text-white" />
                             </span>
@@ -504,8 +520,8 @@ export default function BorrowPage() {
                           <span
                             className={`rounded-xl px-4 py-2 text-[11px] font-semibold transition-colors ${
                               isSelected
-                                ? "bg-[#5D5488] text-white"
-                                : "bg-[#f0f4f8] text-slate group-hover:bg-[#5D5488] group-hover:text-white"
+                                ? "bg-teal text-white"
+                                : "bg-teal-light text-teal group-hover:bg-teal group-hover:text-white"
                             }`}
                           >
                             {isSelected ? "Selected" : "Select"}

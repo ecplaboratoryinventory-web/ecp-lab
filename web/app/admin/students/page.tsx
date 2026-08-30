@@ -62,11 +62,16 @@ interface CsvRow {
 }
 
 const COURSES = [
-  { value: "BSCPE", label: "BSCPE" },
+  { value: "BSCpE", label: "BSCpE" },
   { value: "STEM", label: "STEM" },
-  { value: "HUMSS", label: "HUMSS" },
-  { value: "ABM", label: "ABM" },
 ];
+
+const SUBJECTS = ["Electronics", "Chemistry", "Physics"];
+
+const PROGRAM_SUBJECTS: Record<string, string[]> = {
+  BSCpE: ["Electronics", "Chemistry", "Physics"],
+  STEM: ["Chemistry", "Physics"],
+};
 
 export default function StudentsPage() {
   const supabase = createClient();
@@ -184,6 +189,14 @@ export default function StudentsPage() {
     setModalOpen(true);
   };
 
+  const toggleSubject = (sub: string) => {
+    setForm((prev) => {
+      const list = prev.enrolled_subjects.split(",").map((s) => s.trim()).filter(Boolean);
+      const next = list.includes(sub) ? list.filter((x) => x !== sub) : [...list, sub];
+      return { ...prev, enrolled_subjects: next.join(", ") };
+    });
+  };
+
   const handleSave = async () => {
     if (!form.firstname.trim()) {
       toast({ title: "Validation Error", description: "First name is required.", variant: "error" });
@@ -198,7 +211,7 @@ export default function StudentsPage() {
       return;
     }
     if (!form.course) {
-      toast({ title: "Validation Error", description: "Course is required.", variant: "error" });
+      toast({ title: "Validation Error", description: "Program / Strand is required.", variant: "error" });
       return;
     }
 
@@ -464,7 +477,7 @@ export default function StudentsPage() {
                 <th className="px-4 py-3">Full Name</th>
                 <th className="px-4 py-3">Course</th>
                 <th className="px-4 py-3">Section</th>
-                <th className="px-4 py-3">Enrolled Subjects</th>
+                <th className="px-4 py-3">Subjects</th>
                 <th className="px-4 py-3">Email</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3 text-right">Actions</th>
@@ -590,9 +603,10 @@ export default function StudentsPage() {
               <label className="text-xs font-medium text-slate">Student # <span className="text-red-500">*</span></label>
               <Input
                 value={form.id_no}
-                onChange={(e) => setForm({ ...form, id_no: e.target.value })}
+                onChange={(e) => setForm({ ...form, id_no: e.target.value.replace(/\D/g, "").slice(0, 10) })}
                 className="mt-1 border-[#dde4ec]"
-                placeholder="ID number"
+                placeholder="10-digit ID number"
+                inputMode="numeric"
               />
             </div>
             <div className="col-span-2">
@@ -606,10 +620,22 @@ export default function StudentsPage() {
               />
             </div>
             <div>
-              <label className="text-xs font-medium text-slate">Course <span className="text-red-500">*</span></label>
-              <Select value={form.course || undefined} onValueChange={(v) => setForm({ ...form, course: v || "" })}>
+              <label className="text-xs font-medium text-slate">Program / Strand <span className="text-red-500">*</span></label>
+              <Select
+                value={form.course || null}
+                onValueChange={(v) => {
+                  const prog = v || "";
+                  setForm((prev) => ({
+                    ...prev,
+                    course: prog,
+                    enrolled_subjects: PROGRAM_SUBJECTS[prog]
+                      ? PROGRAM_SUBJECTS[prog].join(", ")
+                      : prev.enrolled_subjects,
+                  }));
+                }}
+              >
                 <SelectTrigger className="mt-1 border-[#dde4ec]">
-                  <SelectValue placeholder="Select course..." />
+                  <SelectValue placeholder="Select program..." />
                 </SelectTrigger>
                 <SelectContent>
                   {COURSES.map((c) => (
@@ -630,13 +656,29 @@ export default function StudentsPage() {
               />
             </div>
             <div className="col-span-2">
-              <label className="text-xs font-medium text-slate">Enrolled Subjects (comma-separated)</label>
-              <Input
-                value={form.enrolled_subjects}
-                onChange={(e) => setForm({ ...form, enrolled_subjects: e.target.value })}
-                className="mt-1 border-[#dde4ec]"
-                placeholder="e.g., BSCpE, STEM, Chemistry, Physics"
-              />
+              <label className="text-xs font-medium text-slate">Subjects</label>
+              <div className="mt-1 flex flex-wrap gap-2">
+                {SUBJECTS.map((sub) => {
+                  const selected = form.enrolled_subjects
+                    .split(",")
+                    .map((s) => s.trim())
+                    .includes(sub);
+                  return (
+                    <button
+                      key={sub}
+                      type="button"
+                      onClick={() => toggleSubject(sub)}
+                      className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all ${
+                        selected
+                          ? "border-teal bg-teal-light text-teal"
+                          : "border-[#dde4ec] bg-white text-silver hover:border-teal hover:text-teal"
+                      }`}
+                    >
+                      {sub}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
             <div className="col-span-2">
               <label className="text-xs font-medium text-slate">
@@ -656,7 +698,7 @@ export default function StudentsPage() {
               Cancel
             </Button>
             <Button onClick={handleSave} className="bg-teal hover:bg-teal-dark">
-              {editingId ? "Update" : "Create"}
+              {editingId ? "Update" : "Add"}
             </Button>
           </div>
         </DialogContent>

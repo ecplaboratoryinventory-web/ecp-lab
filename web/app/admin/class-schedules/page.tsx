@@ -433,7 +433,7 @@ export default function ClassSchedulesPage() {
                 Faculty <span className="text-red-500">*</span>
               </label>
               <Select
-                value={form.faculty_id || undefined}
+                value={form.faculty_id || null}
                 onValueChange={(v) => setForm({ ...form, faculty_id: v || "" })}
                 items={faculty.map((f) => ({ value: f.id, label: f.full_name }))}
               >
@@ -474,7 +474,7 @@ export default function ClassSchedulesPage() {
                 Day of Week <span className="text-red-500">*</span>
               </label>
               <Select
-                value={form.day_of_week || undefined}
+                value={form.day_of_week || null}
                 onValueChange={(v) => setForm({ ...form, day_of_week: v || "" })}
               >
                 <SelectTrigger className="mt-1 border-[#dde4ec]">

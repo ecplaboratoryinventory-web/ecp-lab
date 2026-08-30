@@ -89,7 +89,7 @@ CREATE TABLE borrow_requests (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID NOT NULL REFERENCES users(id),
   request_type TEXT NOT NULL CHECK (request_type IN ('student', 'faculty')),
-  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'denied', 'borrowed', 'returned', 'rejected')),
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'denied', 'borrowed', 'returned', 'rejected', 'return_requested', 'damaged')),
   purpose TEXT,
   class_schedule_id UUID,
   borrow_date DATE,

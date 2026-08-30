@@ -1,25 +1,41 @@
 import { useEffect, useState, useRef } from "react";
-import { View, Text, ScrollView, StyleSheet, ActivityIndicator, RefreshControl, Animated } from "react-native";
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  RefreshControl,
+  Animated,
+} from "react-native";
 import { supabase } from "@/lib/supabase";
+import { COLORS } from "@/lib/theme";
+import { Ionicons } from "@expo/vector-icons";
 
 function SkeletonBlock({ style }: { style: any }) {
   const opacity = useRef(new Animated.Value(0.3)).current;
   useEffect(() => {
     const animation = Animated.loop(
       Animated.sequence([
-        Animated.timing(opacity, { toValue: 0.7, duration: 800, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 0.3, duration: 800, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0.7, duration: 800, useNativeDriver: false }),
+        Animated.timing(opacity, { toValue: 0.3, duration: 800, useNativeDriver: false }),
       ])
     );
     animation.start();
     return () => animation.stop();
   }, []);
-  return <Animated.View style={[{ backgroundColor: "#E8ECF0", borderRadius: 8 }, style, { opacity }]} />;
+  return <Animated.View style={[{ backgroundColor: COLORS.border, borderRadius: 8 }, style, { opacity }]} />;
 }
 
 interface Schedule {
-  id: string; subject: string; section: string; day_of_week: string;
-  start_time: string; end_time: string; room: string; semester: string; school_year: string;
+  id: string;
+  subject: string;
+  section: string;
+  day_of_week: string;
+  start_time: string;
+  end_time: string;
+  room: string;
+  semester: string;
+  school_year: string;
 }
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -59,18 +75,21 @@ export default function FacultyScheduleScreen() {
     setRefreshing(false);
   };
 
-  const todayIdx = new Date().getDay(); // 0=Sun..6=Sat
+  const todayIdx = new Date().getDay();
   const todayName = DAYS[(todayIdx + 6) % 7];
 
-  const grouped = DAYS.map((day) => ({ day, items: schedules.filter((s) => s.day_of_week === day) }));
+  const grouped = DAYS.map((day) => ({
+    day,
+    items: schedules.filter((s) => s.day_of_week === day),
+  }));
 
-  return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>My Class Schedule</Text>
-        <Text style={styles.subtitle}>Your laboratory classes this semester</Text>
-      </View>
-      {loading ? (
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <SkeletonBlock style={{ width: 180, height: 24, backgroundColor: "rgba(255,255,255,0.3)", borderRadius: 4 }} />
+          <SkeletonBlock style={{ width: 220, height: 14, backgroundColor: "rgba(255,255,255,0.25)", borderRadius: 4, marginTop: 6 }} />
+        </View>
         <ScrollView contentContainerStyle={{ padding: 16 }}>
           {[1, 2, 3].map((i) => (
             <View key={i} style={styles.dayCard}>
@@ -79,16 +98,29 @@ export default function FacultyScheduleScreen() {
             </View>
           ))}
         </ScrollView>
-      ) : schedules.length === 0 ? (
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>My Class Schedule</Text>
+        <Text style={styles.subtitle}>Your laboratory classes this semester</Text>
+      </View>
+
+      {schedules.length === 0 ? (
         <View style={styles.empty}>
-          <Text style={{ fontSize: 56 }}>📅</Text>
+          <Ionicons name="calendar-outline" size={56} color={COLORS.silver} />
           <Text style={styles.emptyTitle}>No schedules yet</Text>
-          <Text style={styles.emptySub}>Your class schedule will appear here once assigned by the admin.</Text>
+          <Text style={styles.emptySub}>
+            Your class schedule will appear here once assigned by the admin.
+          </Text>
         </View>
       ) : (
         <ScrollView
           contentContainerStyle={{ padding: 16 }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#1A2980"]} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[COLORS.navy]} />}
         >
           {grouped.map(({ day, items }) => (
             <View key={day} style={styles.dayCard}>
@@ -108,7 +140,9 @@ export default function FacultyScheduleScreen() {
                     <View style={styles.classInfo}>
                       <Text style={styles.subject}>{s.subject || "Subject"}</Text>
                       <Text style={styles.meta}>
-                        {[s.section, s.room, s.semester && s.school_year ? `${s.semester} ${s.school_year}` : ""].filter(Boolean).join(" • ") || "—"}
+                        {[s.section, s.room, s.semester && s.school_year ? `${s.semester} ${s.school_year}` : ""]
+                          .filter(Boolean)
+                          .join(" • ") || "—"}
                       </Text>
                     </View>
                   </View>
@@ -123,23 +157,49 @@ export default function FacultyScheduleScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F4F6FB" },
-  header: { backgroundColor: "#1A2980", padding: 24, paddingTop: 50, paddingBottom: 28 },
-  title: { color: "#fff", fontSize: 22, fontWeight: "bold" },
-  subtitle: { color: "#D0E8FF", fontSize: 13, marginTop: 4 },
-  dayCard: { backgroundColor: "#fff", borderRadius: 14, padding: 16, marginBottom: 12, elevation: 2 },
-  dayHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 },
-  dayName: { fontSize: 15, fontWeight: "bold", color: "#1A2980" },
-  todayBadge: { fontSize: 11, fontWeight: "700", color: "#fff", backgroundColor: "#0ea5a0", paddingHorizontal: 10, paddingVertical: 3, borderRadius: 10 },
-  noClasses: { fontSize: 13, color: "#B0B5C8", fontStyle: "italic" },
+  container: { flex: 1, backgroundColor: COLORS.background },
+  header: { backgroundColor: COLORS.navy, padding: 24, paddingTop: 50, paddingBottom: 28 },
+  title: { color: COLORS.card, fontSize: 22, fontWeight: "bold" },
+  subtitle: { color: "rgba(255,255,255,0.7)", fontSize: 13, marginTop: 4 },
+  dayCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 12,
+    elevation: 2,
+  },
+  dayHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  dayName: { fontSize: 15, fontWeight: "bold", color: COLORS.navy },
+  todayBadge: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: COLORS.card,
+    backgroundColor: COLORS.teal,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  noClasses: { fontSize: 13, color: COLORS.silver, fontStyle: "italic" },
   classRow: { flexDirection: "row", marginBottom: 10 },
-  timeCol: { width: 72, alignItems: "flex-end", paddingRight: 12, borderRightWidth: 2, borderRightColor: "#0ea5a0", marginRight: 12 },
-  time: { fontSize: 13, fontWeight: "700", color: "#2C3E50" },
-  timeEnd: { fontSize: 11, color: "#8A8FA8", marginTop: 2 },
+  timeCol: {
+    width: 72,
+    alignItems: "flex-end",
+    paddingRight: 12,
+    borderRightWidth: 2,
+    borderRightColor: COLORS.teal,
+    marginRight: 12,
+  },
+  time: { fontSize: 13, fontWeight: "700", color: COLORS.navy },
+  timeEnd: { fontSize: 11, color: COLORS.silver, marginTop: 2 },
   classInfo: { flex: 1 },
-  subject: { fontSize: 15, fontWeight: "bold", color: "#2C3E50" },
-  meta: { fontSize: 12, color: "#8A8FA8", marginTop: 3 },
+  subject: { fontSize: 15, fontWeight: "bold", color: COLORS.navy },
+  meta: { fontSize: 12, color: COLORS.silver, marginTop: 3 },
   empty: { flex: 1, justifyContent: "center", alignItems: "center", padding: 40 },
-  emptyTitle: { fontSize: 16, fontWeight: "bold", color: "#1A1A2E", marginTop: 12 },
-  emptySub: { fontSize: 13, color: "#8A8FA8", marginTop: 4, textAlign: "center" },
+  emptyTitle: { fontSize: 16, fontWeight: "bold", color: COLORS.navy, marginTop: 12 },
+  emptySub: { fontSize: 13, color: COLORS.silver, marginTop: 4, textAlign: "center" },
 });

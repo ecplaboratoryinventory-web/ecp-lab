@@ -37,7 +37,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
-  const [userName, setUserName] = useState("Admin");
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
@@ -48,8 +47,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         return;
       }
       if (user) {
-        const { data } = await supabase.from("users").select("full_name, role").eq("id", user.id).single();
-        if (data?.full_name) setUserName(data.full_name);
+        const { data } = await supabase.from("users").select("role").eq("id", user.id).single();
         if (data?.role === "faculty") {
           router.replace("/faculty/dashboard");
           return;
@@ -87,7 +85,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <Link
                 key={item.href}
                 href={item.href}
-                className={`group mb-[3px] flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all ${
+                className={`group relative mb-[3px] flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all ${
                   isActive
                     ? "bg-teal/20 text-white"
                     : "text-white/80 hover:bg-teal/10 hover:text-white hover:pl-5"
@@ -102,20 +100,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             );
           })}
         </nav>
-
-        <div className="border-t border-white/10 bg-black/20 p-4">
-          <div className="rounded-lg bg-white/10 p-3">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-teal text-sm font-bold">
-                {userName.charAt(0).toUpperCase()}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-white">{userName}</p>
-                <p className="text-[0.7rem] text-white/70">Administrator</p>
-              </div>
-            </div>
-          </div>
-        </div>
       </aside>
 
       <div className="ml-[260px] flex flex-1 flex-col">

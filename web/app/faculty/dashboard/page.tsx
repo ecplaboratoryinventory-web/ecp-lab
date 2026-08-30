@@ -143,6 +143,9 @@ export default function FacultyDashboardPage() {
             <Link href="/faculty/equipment" className="inline-flex items-center gap-1.5 rounded-lg border border-[#dde4ec] bg-transparent px-4 py-2 text-xs font-semibold text-[#1b2b40] no-underline transition-colors hover:border-[#0ea5a0] hover:text-[#0ea5a0]">
               <Microscope className="h-3.5 w-3.5" /> Browse Equipment
             </Link>
+            <Link href="/faculty/damage-reports" className="inline-flex items-center gap-1.5 rounded-lg border border-[#dde4ec] bg-transparent px-4 py-2 text-xs font-semibold text-[#1b2b40] no-underline transition-colors hover:border-[#0ea5a0] hover:text-[#0ea5a0]">
+              <AlertTriangle className="h-3.5 w-3.5" /> Damage Reports
+            </Link>
           </div>
         </div>
         <div className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-xl bg-[#e0f7f6] text-[#0ea5a0] text-2xl">

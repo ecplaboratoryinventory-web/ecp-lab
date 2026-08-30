@@ -67,7 +67,7 @@ interface BorrowRequest {
   id: string;
   user_id: string;
   request_type: "student" | "faculty";
-  status: "pending" | "approved" | "denied" | "borrowed" | "returned" | "rejected";
+  status: "pending" | "approved" | "denied" | "borrowed" | "returned" | "rejected" | "return_requested" | "damaged";
   purpose: string;
   borrow_date: string;
   return_date: string;
@@ -96,7 +96,7 @@ interface DamageItemInfo {
 }
 
 type RequestType = "all" | "student" | "faculty";
-type StatusFilter = "all" | "pending" | "approved" | "borrowed" | "returned" | "denied";
+type StatusFilter = "all" | "pending" | "approved" | "borrowed" | "returned" | "denied" | "return_requested" | "damaged";
 
 const STATUS_VARIANTS: Record<string, { label: string; className: string }> = {
   pending: { label: "Pending", className: "bg-amber-100 text-amber-700" },
@@ -105,6 +105,8 @@ const STATUS_VARIANTS: Record<string, { label: string; className: string }> = {
   returned: { label: "Returned", className: "bg-green-100 text-green-700" },
   denied: { label: "Denied", className: "bg-red-100 text-red-700" },
   rejected: { label: "Denied", className: "bg-red-100 text-red-700" },
+  return_requested: { label: "Return Requested", className: "bg-teal-100 text-teal-700" },
+  damaged: { label: "Damaged", className: "bg-red-100 text-red-700" },
 };
 
 const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
@@ -112,7 +114,9 @@ const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: "pending", label: "Pending" },
   { value: "approved", label: "Approved" },
   { value: "borrowed", label: "Borrowed" },
+  { value: "return_requested", label: "Return Requested" },
   { value: "returned", label: "Returned" },
+  { value: "damaged", label: "Damaged" },
   { value: "denied", label: "Denied" },
 ];
 
@@ -359,10 +363,12 @@ export default function BorrowRequestsPage() {
     if (!selectedRequest) return;
 
     let allReturned = true;
+    let hasDamage = false;
 
     for (const item of returnItems) {
       const newReturnedQty = item.alreadyReturned + item.returningQuantity;
       const fullyReturned = newReturnedQty >= item.quantityBorrowed;
+      const equipmentId = (selectedRequest.borrow_items || []).find((bi) => bi.id === item.borrowItemId)?.equipment_id;
 
       await supabase
         .from("borrow_items")
@@ -375,9 +381,13 @@ export default function BorrowRequestsPage() {
       if (!fullyReturned) allReturned = false;
 
       if (item.condition === "damaged" || item.condition === "lost") {
+        hasDamage = true;
+        if (equipmentId) {
+          await supabase.from("equipment").update({ status: "damaged" }).eq("id", equipmentId);
+        }
         const { data: damageReport } = await supabase.from("damage_reports").insert({
           user_id: selectedRequest.user_id,
-          equipment_id: (selectedRequest.borrow_items || []).find((bi) => bi.id === item.borrowItemId)?.equipment_id,
+          equipment_id: equipmentId,
           borrow_request_id: selectedRequest.id,
           description: `Condition on return: ${item.condition}`,
           severity: item.condition === "lost" ? "critical" : "minor",
@@ -389,7 +399,33 @@ export default function BorrowRequestsPage() {
       }
     }
 
-    if (allReturned) {
+    if (hasDamage) {
+      await supabase
+        .from("borrow_requests")
+        .update({
+          status: "damaged",
+          actual_return_date: new Date().toISOString(),
+        })
+        .eq("id", selectedRequest.id);
+      const summary = returnItems
+        .filter((item) => item.condition === "damaged" || item.condition === "lost")
+        .map((item) => `${item.returningQuantity}x ${item.equipmentName}`)
+        .join(", ");
+      const studentName = selectedRequest.users?.full_name || "Student";
+      logActivity(undefined, "damage_report", "borrow_request", selectedRequest.id, { status: "damaged" });
+      const damagedMsg = adminNotifications.equipmentDamaged(summary, studentName);
+      await notifyRole("admin", damagedMsg.title, damagedMsg.message, "damage_report", "borrow_request", selectedRequest.id);
+      await notifyRole("faculty", damagedMsg.title, damagedMsg.message, "damage_report", "borrow_request", selectedRequest.id);
+      const studentDamagedMsg = studentNotifications.equipmentDamaged(summary);
+      await createNotification(
+        selectedRequest.user_id,
+        studentDamagedMsg.title,
+        studentDamagedMsg.message,
+        "damage_report",
+        "borrow_request",
+        selectedRequest.id
+      );
+    } else if (allReturned) {
       await supabase
         .from("borrow_requests")
         .update({
@@ -416,22 +452,6 @@ export default function BorrowRequestsPage() {
       await notifyRole("admin", adminMsg.title, adminMsg.message, "borrow_status", "borrow_request", selectedRequest.id);
       // Notify faculty
       await notifyRole("faculty", adminMsg.title, adminMsg.message, "borrow_status", "borrow_request", selectedRequest.id);
-      // Check for damaged items and notify
-      const damagedItems = returnItems.filter((item) => item.condition === "damaged" || item.condition === "lost");
-      if (damagedItems.length > 0) {
-        const summary = damagedItems.map((item) => `${item.returningQuantity}x ${item.equipmentName}`).join(", ");
-        const damagedMsg = adminNotifications.equipmentDamaged(summary, studentName);
-        await notifyRole("admin", damagedMsg.title, damagedMsg.message, "damage_report", "borrow_request", selectedRequest.id);
-        const studentDamagedMsg = studentNotifications.equipmentDamaged(summary);
-        await createNotification(
-          selectedRequest.user_id,
-          studentDamagedMsg.title,
-          studentDamagedMsg.message,
-          "damage_report",
-          "borrow_request",
-          selectedRequest.id
-        );
-      }
     } else if (selectedRequest.status === "approved") {
       await supabase
         .from("borrow_requests")
@@ -447,14 +467,20 @@ export default function BorrowRequestsPage() {
 
   const openDamageReport = (req: BorrowRequest) => {
     setSelectedRequest(req);
-    const items: DamageItemInfo[] = (req.borrow_items || [])
-      .filter((bi) => bi.condition_on_return === "damaged" || bi.condition_on_return === "lost")
-      .map((bi) => ({
-        borrowItemId: bi.id,
-        equipmentId: bi.equipment_id,
-        equipmentName: bi.equipment?.name || "Unknown",
-        condition: bi.condition_on_return!,
-      }));
+    const allItems = req.borrow_items || [];
+    const damaged = allItems.filter(
+      (bi) => bi.condition_on_return === "damaged" || bi.condition_on_return === "lost"
+    );
+    const chosen =
+      damaged.length > 0
+        ? damaged
+        : allItems.filter((bi) => bi.quantity - bi.returned_quantity > 0);
+    const items: DamageItemInfo[] = chosen.map((bi) => ({
+      borrowItemId: bi.id,
+      equipmentId: bi.equipment_id,
+      equipmentName: bi.equipment?.name || "Unknown",
+      condition: bi.condition_on_return || "damaged",
+    }));
     setDamageItems(items);
     setDamageDescription("");
     setDamageSeverity("minor");
@@ -492,6 +518,19 @@ export default function BorrowRequestsPage() {
         );
         // Notify faculty
         await notifyRole("faculty", adminMsg.title, adminMsg.message, "damage_report", "damage_report", report.id);
+      }
+    }
+
+    if (damageItems.length > 0) {
+      await supabase
+        .from("borrow_requests")
+        .update({ status: "damaged" })
+        .eq("id", selectedRequest.id);
+      for (const item of damageItems) {
+        await supabase
+          .from("equipment")
+          .update({ status: "damaged" })
+          .eq("id", item.equipmentId);
       }
     }
 
@@ -575,11 +614,20 @@ export default function BorrowRequestsPage() {
     return now > deadline.getTime();
   }).length;
 
-  const hasDamagedItems = (req: BorrowRequest) => {
-    return (req.borrow_items || []).some(
-      (bi) => bi.condition_on_return === "damaged" || bi.condition_on_return === "lost"
-    );
+  const isActiveBorrow = (req: BorrowRequest) =>
+    req.status === "borrowed" || req.status === "approved";
+
+  const isPastDue = (req: BorrowRequest) => {
+    if (!isActiveBorrow(req) || !req.return_date) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const due = new Date(req.return_date);
+    due.setHours(0, 0, 0, 0);
+    return due.getTime() <= today.getTime();
   };
+
+  const canReturnOrDamage = (req: BorrowRequest) =>
+    req.status === "return_requested" || isPastDue(req);
 
   return (
     <>
@@ -739,7 +787,14 @@ export default function BorrowRequestsPage() {
                         : null;
 
                     return (
-                      <tr key={req.id} className="border-b border-[#f0f0f0] hover:bg-[#f8f9fa]">
+                      <tr
+                        key={req.id}
+                        className={`border-b border-[#f0f0f0] ${
+                          req.status === "return_requested"
+                            ? "bg-teal-50 ring-2 ring-inset ring-teal-400/60"
+                            : "hover:bg-[#f8f9fa]"
+                        }`}
+                      >
                         <td className="px-4 py-3 font-medium text-navy">
                           {req.users?.full_name || "Unknown"}
                         </td>
@@ -803,27 +858,27 @@ export default function BorrowRequestsPage() {
                                 </Button>
                               </>
                             )}
-                            {(req.status === "approved" || req.status === "borrowed") && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => openReturn(req)}
-                                className="h-8 w-8 p-0"
-                                title="Mark as Returned"
-                              >
-                                <RotateCcw className="h-3.5 w-3.5 text-teal" />
-                              </Button>
-                            )}
-                            {hasDamagedItems(req) && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => openDamageReport(req)}
-                                className="h-8 w-8 p-0"
-                                title="Report Damage"
-                              >
-                                <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
-                              </Button>
+                            {canReturnOrDamage(req) && (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => openReturn(req)}
+                                  className="h-8 w-8 p-0"
+                                  title="Mark as Returned"
+                                >
+                                  <RotateCcw className="h-3.5 w-3.5 text-teal" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => openDamageReport(req)}
+                                  className="h-8 w-8 p-0"
+                                  title="Report Damage"
+                                >
+                                  <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                                </Button>
+                              </>
                             )}
                           </div>
                         </td>

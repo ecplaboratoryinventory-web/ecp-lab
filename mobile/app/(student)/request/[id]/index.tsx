@@ -2,20 +2,23 @@ import { useEffect, useState, useRef } from "react";
 import { View, Text, ScrollView, StyleSheet, ActivityIndicator, TouchableOpacity, Alert, TextInput, Animated } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { COLORS } from "@/lib/theme";
+import { statusColor, statusLabel } from "@/lib/status";
+import { Ionicons } from "@expo/vector-icons";
 
 function SkeletonBlock({ style }: { style: any }) {
   const opacity = useRef(new Animated.Value(0.3)).current;
   useEffect(() => {
     const animation = Animated.loop(
       Animated.sequence([
-        Animated.timing(opacity, { toValue: 0.7, duration: 800, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 0.3, duration: 800, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0.7, duration: 800, useNativeDriver: false }),
+        Animated.timing(opacity, { toValue: 0.3, duration: 800, useNativeDriver: false }),
       ])
     );
     animation.start();
     return () => animation.stop();
   }, []);
-  return <Animated.View style={[{ backgroundColor: "#E8ECF0", borderRadius: 8 }, style, { opacity }]} />;
+  return <Animated.View style={[{ backgroundColor: COLORS.border, borderRadius: 8 }, style, { opacity }]} />;
 }
 
 export default function RequestDetailScreen() {
@@ -39,7 +42,7 @@ export default function RequestDetailScreen() {
   }, [id]);
 
   const steps = ["Pending", "Borrowed", "Returned"];
-  const statusIndex: Record<string, number> = { pending: 0, approved: 0, borrowed: 1, returned: 2 };
+  const statusIndex: Record<string, number> = { pending: 0, approved: 0, borrowed: 1, return_requested: 1, returned: 2, damaged: 2 };
   const currentStep = statusIndex[request?.status] ?? -1;
 
   const handleDamageReport = async () => {
@@ -96,7 +99,7 @@ export default function RequestDetailScreen() {
             </View>
           ))}
         </View>
-        <View style={[styles.card, { margin: 16, borderRadius: 16, padding: 20, backgroundColor: "#fff" }]}>
+        <View style={[styles.card, { margin: 16, borderRadius: 16, padding: 20, backgroundColor: COLORS.card }]}>
           {[1, 2, 3, 4, 5].map((i) => (
             <View key={i}>
               <View style={[styles.row, { marginBottom: i < 5 ? 0 : 0 }]}>
@@ -122,8 +125,8 @@ export default function RequestDetailScreen() {
             <Text style={styles.backBtn}>← Back</Text>
           </TouchableOpacity>
           <Text style={styles.title}>Borrow Request Tracking</Text>
-          <View style={[styles.statusBadge, { backgroundColor: isDenied ? "#E74C3C" : "#008080" }]}>
-            <Text style={styles.statusText}>{request.status}</Text>
+          <View style={[styles.statusBadge, { backgroundColor: statusColor(request.status) }]}>
+            <Text style={styles.statusText}>{statusLabel(request.status)}</Text>
           </View>
         </View>
 
@@ -171,12 +174,41 @@ export default function RequestDetailScreen() {
           </View>
         </View>
 
+        {/* Return request submitted notice */}
+        {request.status === "return_requested" && (
+          <View style={styles.returnRequestCard}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Ionicons name="time-outline" size={14} color={COLORS.tealDark} />
+              <Text style={styles.returnRequestTitle}>Return Request Submitted</Text>
+            </View>
+            <Text style={styles.returnRequestText}>
+              Awaiting confirmation from the laboratory custodian.
+            </Text>
+          </View>
+        )}
+
+        {/* Damaged notice */}
+        {request.status === "damaged" && (
+          <View style={styles.damagedNoticeCard}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Ionicons name="warning" size={14} color={COLORS.destructive} />
+              <Text style={styles.damagedNoticeTitle}>Equipment Damaged</Text>
+            </View>
+            <Text style={styles.damagedNoticeText}>
+              This equipment was reported as damaged. Refer to your damage reports for details.
+            </Text>
+          </View>
+        )}
+
         {/* Damage Report (only when borrowed) */}
         {request.status === "borrowed" && (
           <View style={styles.damageCard}>
             {!damageOpen ? (
               <TouchableOpacity onPress={() => setDamageOpen(true)}>
-                <Text style={styles.damageTitle}>⚠ Report Equipment Damage</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <Ionicons name="warning" size={14} color={COLORS.destructive} />
+                  <Text style={styles.damageTitle}>Report Equipment Damage</Text>
+                </View>
                 <Text style={styles.damageHint}>Noticed damage? Let us know.</Text>
               </TouchableOpacity>
             ) : (
@@ -189,11 +221,11 @@ export default function RequestDetailScreen() {
                       key={sev}
                       style={[
                         styles.severityBtn,
-                        damageSeverity === sev && { backgroundColor: "#E53935", borderColor: "#E53935" },
+                        damageSeverity === sev && { backgroundColor: COLORS.destructive, borderColor: COLORS.destructive },
                       ]}
                       onPress={() => setDamageSeverity(sev)}
                     >
-                      <Text style={[styles.severityText, damageSeverity === sev && { color: "#fff" }]}>
+                      <Text style={[styles.severityText, damageSeverity === sev && { color: COLORS.card }]}>
                         {sev[0].toUpperCase() + sev.slice(1)}
                       </Text>
                     </TouchableOpacity>
@@ -208,10 +240,10 @@ export default function RequestDetailScreen() {
                 />
                 <View style={{ flexDirection: "row", gap: 10, marginTop: 10 }}>
                   <TouchableOpacity style={styles.cancelBtn} onPress={() => setDamageOpen(false)}>
-                    <Text style={{ color: "#757575" }}>Cancel</Text>
+                    <Text style={{ color: COLORS.slate }}>Cancel</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.reportBtn} onPress={handleDamageReport} disabled={reporting}>
-                    {reporting ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "bold" }}>Submit Report</Text>}
+                    {reporting ? <ActivityIndicator color={COLORS.card} /> : <Text style={{ color: COLORS.card, fontWeight: "bold" }}>Submit Report</Text>}
                   </TouchableOpacity>
                 </View>
               </>
@@ -222,7 +254,10 @@ export default function RequestDetailScreen() {
         {/* Return (when active) */}
         {(request.status === "borrowed" || request.status === "approved") && (
           <View style={styles.returnCard}>
-            <Text style={styles.returnTitle}>📦 Return Equipment</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Ionicons name="cube-outline" size={14} color={COLORS.tealDark} />
+              <Text style={styles.returnTitle}>Return Equipment</Text>
+            </View>
             <Text style={styles.returnHint}>
               {request.status === "borrowed" ? "Done using these items? Return them now." : "Items are ready for pickup. Return them after use."}
             </Text>
@@ -247,7 +282,7 @@ export default function RequestDetailScreen() {
           <View style={styles.cancelCard}>
             <Text style={styles.cancelTitle}>Changed your mind?</Text>
             <TouchableOpacity style={styles.cancelActionBtn} onPress={handleCancel} disabled={cancelling}>
-              {cancelling ? <ActivityIndicator color="#E74C3C" /> : <Text style={styles.cancelActionText}>Cancel Request</Text>}
+              {cancelling ? <ActivityIndicator color={COLORS.destructive} /> : <Text style={styles.cancelActionText}>Cancel Request</Text>}
             </TouchableOpacity>
           </View>
         )}
@@ -257,48 +292,54 @@ export default function RequestDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F0F4FF" },
-  header: { backgroundColor: "#1A2980", padding: 20, paddingTop: 50 },
-  backBtn: { color: "#D0E8FF", fontSize: 14 },
-  title: { color: "#fff", fontSize: 18, fontWeight: "bold", marginTop: 8 },
+  container: { flex: 1, backgroundColor: COLORS.background },
+  header: { backgroundColor: COLORS.navy, padding: 20, paddingTop: 50 },
+  backBtn: { color: "rgba(255,255,255,0.7)", fontSize: 14 },
+  title: { color: COLORS.card, fontSize: 18, fontWeight: "bold", marginTop: 8 },
   statusBadge: { position: "absolute", top: 50, right: 20, paddingHorizontal: 14, paddingVertical: 4, borderRadius: 14 },
-  statusText: { color: "#fff", fontSize: 11, fontWeight: "bold", textTransform: "uppercase" },
+  statusText: { color: COLORS.card, fontSize: 11, fontWeight: "bold", textTransform: "uppercase" },
   tracker: { flexDirection: "row", alignItems: "flex-start", padding: 24, paddingBottom: 8 },
   stepWrap: { flex: 1, alignItems: "center" },
-  stepDot: { width: 16, height: 16, borderRadius: 8, backgroundColor: "#e0e0e0" },
-  stepDone: { backgroundColor: "#2ECC71" },
-  stepActive: { backgroundColor: "#3498DB" },
-  stepDenied: { backgroundColor: "#E74C3C" },
-  stepLine: { position: "absolute", top: 8, right: "-50%", width: "100%", height: 2, backgroundColor: "#E0E4EF", zIndex: -1 },
-  stepLineDone: { backgroundColor: "#008080" },
-  stepLabel: { fontSize: 10, color: "#8A8FA8", marginTop: 6 },
-  card: { backgroundColor: "#fff", margin: 16, borderRadius: 16, padding: 20, elevation: 4 },
-  sectionLabel: { fontSize: 10, fontWeight: "bold", color: "#008080", marginBottom: 14, letterSpacing: 1 },
+  stepDot: { width: 16, height: 16, borderRadius: 8, backgroundColor: COLORS.border },
+  stepDone: { backgroundColor: COLORS.success },
+  stepActive: { backgroundColor: COLORS.info },
+  stepDenied: { backgroundColor: COLORS.destructive },
+  stepLine: { position: "absolute", top: 8, right: "-50%", width: "100%", height: 2, backgroundColor: COLORS.border, zIndex: -1 },
+  stepLineDone: { backgroundColor: COLORS.teal },
+  stepLabel: { fontSize: 10, color: COLORS.silver, marginTop: 6 },
+  card: { backgroundColor: COLORS.card, margin: 16, borderRadius: 16, padding: 20, elevation: 4 },
+  sectionLabel: { fontSize: 10, fontWeight: "bold", color: COLORS.teal, marginBottom: 14, letterSpacing: 1 },
   row: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 8 },
-  dLabel: { fontSize: 12, fontWeight: "bold", color: "#8A8FA8", width: 100 },
-  dValue: { fontSize: 13, color: "#1A1A2E", flex: 1, textAlign: "right" },
-  divider: { height: 1, backgroundColor: "#F2F4F8" },
-  damageCard: { margin: 16, backgroundColor: "#FFF8F8", borderRadius: 14, padding: 16, borderLeftWidth: 4, borderLeftColor: "#E53935" },
-  damageTitle: { fontSize: 14, fontWeight: "bold", color: "#C62828" },
-  damageHint: { fontSize: 12, color: "#B0B5C8", marginTop: 4 },
-  damageInput: { backgroundColor: "#fff", borderRadius: 8, borderWidth: 1, borderColor: "#E53935", padding: 10, fontSize: 14, minHeight: 60, marginTop: 8 },
-  severityBtn: { flex: 1, height: 40, borderRadius: 8, borderWidth: 1.5, borderColor: "#E0B4B4", backgroundColor: "#FFF0F0", justifyContent: "center", alignItems: "center" },
-  severityText: { fontSize: 13, fontWeight: "bold", color: "#C62828" },
-  cancelBtn: { flex: 1, height: 44, borderRadius: 10, backgroundColor: "#E0E0E0", justifyContent: "center", alignItems: "center" },
-  reportBtn: { flex: 1, height: 44, borderRadius: 10, backgroundColor: "#E53935", justifyContent: "center", alignItems: "center" },
-  deniedCard: { margin: 16, backgroundColor: "#FFF5F5", borderRadius: 14, padding: 16, borderLeftWidth: 4, borderLeftColor: "#E74C3C" },
-  deniedTitle: { fontSize: 14, fontWeight: "bold", color: "#C62828" },
-  deniedText: { fontSize: 13, color: "#555", marginTop: 4 },
-  returnCard: { margin: 16, backgroundColor: "#E6FFFA", borderRadius: 14, padding: 16, borderLeftWidth: 4, borderLeftColor: "#0ea5a0" },
-  returnTitle: { fontSize: 14, fontWeight: "bold", color: "#0f766e" },
-  returnHint: { fontSize: 12, color: "#64748B", marginTop: 4 },
-  returnBtn: { marginTop: 12, backgroundColor: "#0ea5a0", height: 46, borderRadius: 10, justifyContent: "center", alignItems: "center" },
-  returnBtnText: { color: "#fff", fontSize: 14, fontWeight: "bold" },
-  cancelCard: { margin: 16, backgroundColor: "#FFF8F8", borderRadius: 14, padding: 16, borderLeftWidth: 4, borderLeftColor: "#E74C3C" },
-  cancelTitle: { fontSize: 14, fontWeight: "bold", color: "#C62828" },
+  dLabel: { fontSize: 12, fontWeight: "bold", color: COLORS.silver, width: 100 },
+  dValue: { fontSize: 13, color: COLORS.navy, flex: 1, textAlign: "right" },
+  divider: { height: 1, backgroundColor: COLORS.border },
+  damageCard: { margin: 16, backgroundColor: COLORS.background, borderRadius: 14, padding: 16, borderLeftWidth: 4, borderLeftColor: COLORS.destructive },
+  damageTitle: { fontSize: 14, fontWeight: "bold", color: COLORS.destructive },
+  damageHint: { fontSize: 12, color: COLORS.silver, marginTop: 4 },
+  damageInput: { backgroundColor: COLORS.card, borderRadius: 8, borderWidth: 1, borderColor: COLORS.destructive, padding: 10, fontSize: 14, minHeight: 60, marginTop: 8 },
+  severityBtn: { flex: 1, height: 40, borderRadius: 8, borderWidth: 1.5, borderColor: COLORS.border, backgroundColor: COLORS.background, justifyContent: "center", alignItems: "center" },
+  severityText: { fontSize: 13, fontWeight: "bold", color: COLORS.destructive },
+  cancelBtn: { flex: 1, height: 44, borderRadius: 10, backgroundColor: COLORS.background, justifyContent: "center", alignItems: "center" },
+  reportBtn: { flex: 1, height: 44, borderRadius: 10, backgroundColor: COLORS.destructive, justifyContent: "center", alignItems: "center" },
+  deniedCard: { margin: 16, backgroundColor: COLORS.background, borderRadius: 14, padding: 16, borderLeftWidth: 4, borderLeftColor: COLORS.destructive },
+  deniedTitle: { fontSize: 14, fontWeight: "bold", color: COLORS.destructive },
+  deniedText: { fontSize: 13, color: COLORS.slate, marginTop: 4 },
+  returnCard: { margin: 16, backgroundColor: COLORS.tealLight, borderRadius: 14, padding: 16, borderLeftWidth: 4, borderLeftColor: COLORS.teal },
+  returnRequestCard: { margin: 16, backgroundColor: COLORS.tealLight, borderRadius: 14, padding: 16, borderLeftWidth: 4, borderLeftColor: COLORS.teal },
+  returnRequestTitle: { fontSize: 14, fontWeight: "bold", color: COLORS.tealDark },
+  returnRequestText: { fontSize: 12, color: COLORS.slate, marginTop: 4 },
+  damagedNoticeCard: { margin: 16, backgroundColor: COLORS.background, borderRadius: 14, padding: 16, borderLeftWidth: 4, borderLeftColor: COLORS.destructive },
+  damagedNoticeTitle: { fontSize: 14, fontWeight: "bold", color: COLORS.destructive },
+  damagedNoticeText: { fontSize: 12, color: COLORS.slate, marginTop: 4 },
+  returnTitle: { fontSize: 14, fontWeight: "bold", color: COLORS.tealDark },
+  returnHint: { fontSize: 12, color: COLORS.slate, marginTop: 4 },
+  returnBtn: { marginTop: 12, backgroundColor: COLORS.teal, height: 46, borderRadius: 10, justifyContent: "center", alignItems: "center" },
+  returnBtnText: { color: COLORS.card, fontSize: 14, fontWeight: "bold" },
+  cancelCard: { margin: 16, backgroundColor: COLORS.background, borderRadius: 14, padding: 16, borderLeftWidth: 4, borderLeftColor: COLORS.destructive },
+  cancelTitle: { fontSize: 14, fontWeight: "bold", color: COLORS.destructive },
   cancelActionBtn: {
-    marginTop: 10, height: 46, borderRadius: 10, borderWidth: 1.5, borderColor: "#E74C3C",
+    marginTop: 10, height: 46, borderRadius: 10, borderWidth: 1.5, borderColor: COLORS.destructive,
     justifyContent: "center", alignItems: "center",
   },
-  cancelActionText: { color: "#E74C3C", fontSize: 14, fontWeight: "bold" },
+  cancelActionText: { color: COLORS.destructive, fontSize: 14, fontWeight: "bold" },
 });

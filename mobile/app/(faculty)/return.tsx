@@ -1,18 +1,30 @@
 import { useEffect, useState } from "react";
 import {
-  View, Text, FlatList, StyleSheet, TouchableOpacity,
-  Alert, ActivityIndicator, TextInput,
+  View,
+  Text,
+  FlatList,
+  StyleSheet,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator,
+  TextInput,
 } from "react-native";
 import { supabase } from "@/lib/supabase";
+import { COLORS } from "@/lib/theme";
 import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 
 interface BorrowItem {
-  id: string; quantity: number; returned_quantity: number;
+  id: string;
+  quantity: number;
+  returned_quantity: number;
   equipment: { id: string; name: string; available_quantity: number };
 }
 
 interface BorrowRequest {
-  id: string; borrow_date: string; purpose: string;
+  id: string;
+  borrow_date: string;
+  purpose: string;
   borrow_items: BorrowItem[];
 }
 
@@ -24,6 +36,7 @@ interface ReturnState {
 }
 
 const conditions = ["good", "damaged", "lost"] as const;
+const severities = ["minor", "major", "critical"] as const;
 
 export default function FacultyReturnScreen() {
   const router = useRouter();
@@ -135,13 +148,13 @@ export default function FacultyReturnScreen() {
     }
   };
 
-  if (loading) return <ActivityIndicator size="large" color="#1A2980" style={{ flex: 1 }} />;
+  if (loading) return <ActivityIndicator size="large" color={COLORS.navy} style={{ flex: 1 }} />;
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.backBtn}>← Back</Text>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <Text style={styles.backBtnText}>← Back</Text>
         </TouchableOpacity>
         <Text style={styles.title}>Return Equipment</Text>
         <Text style={styles.hint}>Select condition for each item being returned</Text>
@@ -149,8 +162,8 @@ export default function FacultyReturnScreen() {
 
       {submitting && (
         <View style={styles.returningBar}>
-          <ActivityIndicator color="#fff" size="small" />
-          <Text style={{ color: "#fff", marginLeft: 8 }}>Processing return...</Text>
+          <ActivityIndicator color={COLORS.card} size="small" />
+          <Text style={styles.returningText}>Processing return...</Text>
         </View>
       )}
 
@@ -180,7 +193,11 @@ export default function FacultyReturnScreen() {
                         {remaining(bi) > 0 ? ` / Remaining: ${remaining(bi)}` : ""}
                       </Text>
                     </View>
-                    <Text style={{ fontSize: 28 }}>{remaining(bi) > 0 ? "📦" : "✅"}</Text>
+                    {remaining(bi) > 0 ? (
+                      <Ionicons name="cube-outline" size={28} color={COLORS.teal} />
+                    ) : (
+                      <Ionicons name="checkmark-circle" size={28} color={COLORS.success} />
+                    )}
                   </View>
                 ))}
                 {req.purpose ? (
@@ -191,7 +208,12 @@ export default function FacultyReturnScreen() {
               {expanded && remainingItems.length > 0 && (
                 <View style={styles.itemPanel}>
                   {remainingItems.map((bi) => {
-                    const s = states[req.id]?.[bi.id] || { returned_quantity: remaining(bi), condition: "good", notes: "", severity: "minor" };
+                    const s = states[req.id]?.[bi.id] || {
+                      returned_quantity: remaining(bi),
+                      condition: "good" as const,
+                      notes: "",
+                      severity: "minor" as const,
+                    };
                     const needsDetails = s.condition === "damaged" || s.condition === "lost";
                     return (
                       <View key={bi.id} style={styles.panelItem}>
@@ -206,21 +228,23 @@ export default function FacultyReturnScreen() {
                               style={[styles.condBtn, s.condition === c && styles.condBtnActive]}
                               onPress={() => setItemState(req.id, bi.id, { condition: c })}
                             >
-                              <Text style={[styles.condText, s.condition === c && styles.condTextActive]}>{c}</Text>
+                              <Text style={[styles.condText, s.condition === c && styles.condTextActive]}>
+                                {c.charAt(0).toUpperCase() + c.slice(1)}
+                              </Text>
                             </TouchableOpacity>
                           ))}
                         </View>
 
                         {needsDetails && s.condition === "damaged" && (
                           <View style={styles.severityRow}>
-                            {(["minor", "major", "critical"] as const).map((sev) => (
+                            {severities.map((sev) => (
                               <TouchableOpacity
                                 key={sev}
                                 style={[styles.sevBtn, s.severity === sev && styles.sevBtnActive]}
                                 onPress={() => setItemState(req.id, bi.id, { severity: sev })}
                               >
                                 <Text style={[styles.sevText, s.severity === sev && styles.sevTextActive]}>
-                                  {sev[0].toUpperCase() + sev.slice(1)}
+                                  {sev.charAt(0).toUpperCase() + sev.slice(1)}
                                 </Text>
                               </TouchableOpacity>
                             ))}
@@ -230,8 +254,12 @@ export default function FacultyReturnScreen() {
                         {needsDetails && (
                           <TextInput
                             style={styles.notesInput}
-                            placeholder={s.condition === "lost" ? "Describe the loss (required)..." : "Describe the damage (required)..."}
-                            placeholderTextColor="#999"
+                            placeholder={
+                              s.condition === "lost"
+                                ? "Describe the loss (required)..."
+                                : "Describe the damage (required)..."
+                            }
+                            placeholderTextColor={COLORS.silver}
                             value={s.notes}
                             onChangeText={(t) => setItemState(req.id, bi.id, { notes: t })}
                             multiline
@@ -241,7 +269,11 @@ export default function FacultyReturnScreen() {
                     );
                   })}
 
-                  <TouchableOpacity style={styles.submitBtn} onPress={() => submitReturn(req)} disabled={submitting}>
+                  <TouchableOpacity
+                    style={[styles.submitBtn, submitting && styles.submitBtnDisabled]}
+                    onPress={() => submitReturn(req)}
+                    disabled={submitting}
+                  >
                     <Text style={styles.submitText}>Confirm Return</Text>
                   </TouchableOpacity>
                 </View>
@@ -251,10 +283,10 @@ export default function FacultyReturnScreen() {
         }}
         keyExtractor={(item) => item.id}
         ListEmptyComponent={
-          <View style={{ padding: 60, alignItems: "center" }}>
-            <Text style={{ fontSize: 48 }}>📭</Text>
-            <Text style={{ fontSize: 16, color: "#757575", fontWeight: "bold", marginTop: 8 }}>No active borrows</Text>
-            <Text style={{ fontSize: 13, color: "#999", marginTop: 4 }}>Your borrowed equipment will appear here</Text>
+          <View style={styles.empty}>
+            <Ionicons name="archive-outline" size={48} color={COLORS.silver} />
+            <Text style={styles.emptyTitle}>No active borrows</Text>
+            <Text style={styles.emptySub}>Your borrowed equipment will appear here</Text>
           </View>
         }
       />
@@ -263,46 +295,123 @@ export default function FacultyReturnScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F0F4FF" },
-  header: { backgroundColor: "#1A2980", padding: 20, paddingTop: 50 },
-  backBtn: { color: "#D0E8FF", fontSize: 14 },
-  title: { color: "#fff", fontSize: 22, fontWeight: "bold" },
-  hint: { color: "#D0E8FF", fontSize: 13, marginTop: 4 },
+  container: { flex: 1, backgroundColor: COLORS.background },
+  header: { backgroundColor: COLORS.navy, padding: 20, paddingTop: 50 },
+  backBtn: { marginBottom: 8 },
+  backBtnText: { color: "rgba(255,255,255,0.7)", fontSize: 14 },
+  title: { color: COLORS.card, fontSize: 22, fontWeight: "bold" },
+  hint: { color: "rgba(255,255,255,0.7)", fontSize: 13, marginTop: 4 },
   returningBar: {
-    flexDirection: "row", alignItems: "center", justifyContent: "center",
-    backgroundColor: "#0ea5a0", padding: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: COLORS.teal,
+    padding: 10,
   },
+  returningText: { color: COLORS.card, marginLeft: 8 },
   card: {
-    backgroundColor: "#fff", borderRadius: 14, padding: 16, marginBottom: 10,
-    elevation: 2, borderLeftWidth: 4, borderLeftColor: "#0ea5a0",
+    backgroundColor: COLORS.card,
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 10,
+    elevation: 2,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.teal,
   },
-  cardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 },
-  dateText: { fontSize: 12, color: "#757575" },
-  returnBadge: { fontSize: 11, color: "#0ea5a0", fontWeight: "600", backgroundColor: "#E6FFFA", paddingHorizontal: 10, paddingVertical: 3, borderRadius: 10 },
-  returnedBadge: { fontSize: 11, color: "#2ECC71", fontWeight: "600", backgroundColor: "#E8F8EF", paddingHorizontal: 10, paddingVertical: 3, borderRadius: 10 },
+  cardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  dateText: { fontSize: 12, color: COLORS.silver },
+  returnBadge: {
+    fontSize: 11,
+    color: COLORS.teal,
+    fontWeight: "600",
+    backgroundColor: COLORS.tealLight,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  returnedBadge: {
+    fontSize: 11,
+    color: COLORS.success,
+    fontWeight: "600",
+    backgroundColor: COLORS.tealLight,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
   equipmentRow: { flexDirection: "row", alignItems: "center", marginBottom: 6 },
-  equipmentName: { fontSize: 15, fontWeight: "bold", color: "#2C3E50" },
-  equipmentQty: { fontSize: 12, color: "#757575", marginTop: 2 },
-  purposeText: { fontSize: 12, color: "#999", marginTop: 4, fontStyle: "italic" },
-  itemPanel: { marginTop: 10, borderTopWidth: 1, borderTopColor: "#EEF0F6", paddingTop: 12 },
-  panelItem: { marginBottom: 14, padding: 12, backgroundColor: "#F7F9FD", borderRadius: 10 },
-  panelItemName: { fontSize: 14, fontWeight: "bold", color: "#2C3E50" },
-  panelItemQty: { fontSize: 12, color: "#757575", marginTop: 2 },
-  panelLabel: { fontSize: 12, fontWeight: "600", color: "#444", marginTop: 10, marginBottom: 6 },
-  condRow: { flexDirection: "row", gap: 8 },
-  condBtn: { flex: 1, height: 38, borderRadius: 8, borderWidth: 1.5, borderColor: "#D0D7E8", backgroundColor: "#fff", justifyContent: "center", alignItems: "center" },
-  condBtnActive: { borderColor: "#0ea5a0", backgroundColor: "#E6FFFA" },
-  condText: { fontSize: 12, fontWeight: "600", color: "#666", textTransform: "capitalize" },
-  condTextActive: { color: "#0f766e" },
-  severityRow: { flexDirection: "row", gap: 8, marginTop: 10 },
-  sevBtn: { flex: 1, height: 34, borderRadius: 8, borderWidth: 1, borderColor: "#E0B4B4", backgroundColor: "#FFF0F0", justifyContent: "center", alignItems: "center" },
-  sevBtnActive: { backgroundColor: "#E53935", borderColor: "#E53935" },
-  sevText: { fontSize: 11, fontWeight: "600", color: "#C62828", textTransform: "capitalize" },
-  sevTextActive: { color: "#fff" },
-  notesInput: {
-    backgroundColor: "#fff", borderRadius: 8, borderWidth: 1, borderColor: "#E0B4B4",
-    padding: 10, fontSize: 13, minHeight: 48, marginTop: 10, color: "#222",
+  equipmentName: { fontSize: 15, fontWeight: "bold", color: COLORS.navy },
+  equipmentQty: { fontSize: 12, color: COLORS.slate, marginTop: 2 },
+  purposeText: { fontSize: 12, color: COLORS.silver, marginTop: 4, fontStyle: "italic" },
+  itemPanel: {
+    marginTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+    paddingTop: 12,
   },
-  submitBtn: { backgroundColor: "#0ea5a0", height: 48, borderRadius: 10, justifyContent: "center", alignItems: "center", marginTop: 4 },
-  submitText: { color: "#fff", fontSize: 15, fontWeight: "bold" },
+  panelItem: {
+    marginBottom: 14,
+    padding: 12,
+    backgroundColor: COLORS.background,
+    borderRadius: 10,
+  },
+  panelItemName: { fontSize: 14, fontWeight: "bold", color: COLORS.navy },
+  panelItemQty: { fontSize: 12, color: COLORS.slate, marginTop: 2 },
+  panelLabel: { fontSize: 12, fontWeight: "600", color: COLORS.slate, marginTop: 10, marginBottom: 6 },
+  condRow: { flexDirection: "row", gap: 8 },
+  condBtn: {
+    flex: 1,
+    height: 38,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.card,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  condBtnActive: { borderColor: COLORS.teal, backgroundColor: COLORS.tealLight },
+  condText: { fontSize: 12, fontWeight: "600", color: COLORS.slate },
+  condTextActive: { color: COLORS.teal },
+  severityRow: { flexDirection: "row", gap: 8, marginTop: 10 },
+  sevBtn: {
+    flex: 1,
+    height: 34,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.destructive,
+    backgroundColor: COLORS.destructive + "1A",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  sevBtnActive: { backgroundColor: COLORS.destructive, borderColor: COLORS.destructive },
+  sevText: { fontSize: 11, fontWeight: "600", color: COLORS.destructive },
+  sevTextActive: { color: COLORS.card },
+  notesInput: {
+    backgroundColor: COLORS.card,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: 10,
+    fontSize: 13,
+    minHeight: 48,
+    marginTop: 10,
+    color: COLORS.navy,
+  },
+  submitBtn: {
+    backgroundColor: COLORS.teal,
+    height: 48,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 4,
+  },
+  submitBtnDisabled: { opacity: 0.7 },
+  submitText: { color: COLORS.card, fontSize: 15, fontWeight: "bold" },
+  empty: { padding: 60, alignItems: "center" },
+  emptyTitle: { fontSize: 16, color: COLORS.silver, fontWeight: "bold", marginTop: 8 },
+  emptySub: { fontSize: 13, color: COLORS.silver, marginTop: 4 },
 });

@@ -1,19 +1,24 @@
 import { Platform } from "react-native";
-import Constants from "expo-constants";
-import * as Notifications from "expo-notifications";
 import { supabase } from "@/lib/supabase";
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: false,
-    shouldSetBadge: false,
-  }),
-});
+if (Platform.OS !== "web") {
+  const Notifications = require("expo-notifications");
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: false,
+      shouldSetBadge: false,
+    }),
+  });
+}
 
 export async function getExpoPushToken(): Promise<string | null> {
+  if (Platform.OS === "web") return null;
   try {
+    const Notifications = require("expo-notifications");
+    const Constants = require("expo-constants");
+
     if (Platform.OS === "android") {
       await Notifications.setNotificationChannelAsync("default", {
         name: "Default",
@@ -48,6 +53,8 @@ export async function getExpoPushToken(): Promise<string | null> {
 }
 
 export async function registerPushToken(): Promise<void> {
+  if (Platform.OS === "web") return;
+
   const {
     data: { user },
   } = await supabase.auth.getUser();

@@ -29,9 +29,10 @@ function getRelativeTime(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-export function AdminHeader() {
+export function FacultyHeader({ title = "Dashboard" }: { title?: string }) {
   const router = useRouter();
-  const [name, setName] = useState("Administrator");
+  const [name, setName] = useState("Faculty");
+  const [dept, setDept] = useState("");
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState<NotifItem[]>([]);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -49,8 +50,9 @@ export function AdminHeader() {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      const { data } = await supabase.from("users").select("full_name").eq("id", user.id).single();
+      const { data } = await supabase.from("users").select("full_name, department").eq("id", user.id).single();
       if (data?.full_name) setName(data.full_name);
+      if (data?.department) setDept(data.department);
 
       const { data: notifs } = await supabase
         .from("notifications")
@@ -78,7 +80,7 @@ export function AdminHeader() {
   useEffect(() => {
     const supabase = createClient();
     const channel = supabase
-      .channel("admin-header-notifications")
+      .channel("faculty-header-notifications")
       .on("postgres_changes", { event: "*", schema: "public", table: "notifications" }, () => fetchNotifications())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -116,7 +118,11 @@ export function AdminHeader() {
 
   return (
     <>
-      <header className="sticky top-0 z-20 flex h-16 items-center justify-end border-b border-[#dde4ec] bg-white px-6 shadow-sm">
+      <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-[#dde4ec] bg-white px-6 shadow-sm">
+        <div>
+          <h1 className="text-xl font-semibold text-navy">{title}</h1>
+        </div>
+
         <div className="flex items-center gap-3">
           {/* Notification Bell + Dropdown */}
           <div className="relative" ref={notifRef}>
@@ -174,7 +180,7 @@ export function AdminHeader() {
                 </div>
                 <div className="border-t border-[#dde4ec] px-4 py-2.5">
                   <Link
-                    href="/notifications"
+                    href="/faculty/notifications"
                     onClick={() => setNotifOpen(false)}
                     className="block text-center text-xs font-semibold text-teal hover:underline"
                   >
@@ -196,7 +202,11 @@ export function AdminHeader() {
             </button>
 
             <div className="invisible absolute right-0 top-full mt-2 w-48 rounded-lg border border-[#dde4ec] bg-white shadow-lg opacity-0 transition-all group-hover:visible group-hover:opacity-100">
-              <a href="/admin/settings" className="flex items-center gap-2 px-4 py-2.5 text-sm text-navy hover:bg-[#f8f9fa]">
+              <div className="border-b border-[#dde4ec] px-4 py-2.5">
+                <p className="truncate text-sm font-semibold text-navy">{name}</p>
+                <p className="text-[0.7rem] text-silver">{dept || "Faculty"}</p>
+              </div>
+              <a href="/faculty/profile" className="flex items-center gap-2 px-4 py-2.5 text-sm text-navy hover:bg-[#f8f9fa]">
                 <User className="h-4 w-4" /> Profile
               </a>
               <button onClick={handleLogout} className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-red-500 hover:bg-[#f8f9fa]">

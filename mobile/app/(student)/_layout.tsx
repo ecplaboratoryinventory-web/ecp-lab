@@ -1,83 +1,85 @@
-import { Tabs, useRouter } from "expo-router";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { Tabs } from "expo-router";
+import { View, StyleSheet, Platform, type ColorValue } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { COLORS } from "@/lib/theme";
 
-function TabIcon({ name, focused }: { name: string; focused: boolean }) {
-  const icons: Record<string, string> = {
-    home: "🏠",
-    requests: "📋",
-    "damage-reports": "🛠️",
-    borrow: "🔬",
-    notifications: "🔔",
-    profile: "👤",
+type IonName = React.ComponentProps<typeof Ionicons>["name"];
+
+function TabIcon({ name, focused, color }: { name: string; focused: boolean; color: ColorValue }) {
+  const icons: Record<string, { outline: IonName; filled: IonName }> = {
+    home: { outline: "home-outline", filled: "home" },
+    borrow: { outline: "flask-outline", filled: "flask" },
+    requests: { outline: "clipboard-outline", filled: "clipboard" },
+    notifications: { outline: "notifications-outline", filled: "notifications" },
+    profile: { outline: "person-outline", filled: "person" },
   };
-  return <Text style={{ fontSize: focused ? 22 : 20, opacity: focused ? 1 : 0.5 }}>{icons[name] || "•"}</Text>;
+  const icon = icons[name] || { outline: "ellipse-outline", filled: "ellipse-outline" };
+  return <Ionicons name={focused ? icon.filled : icon.outline} size={focused ? 24 : 22} color={color} />;
 }
 
 export default function StudentLayout() {
-  const router = useRouter();
-
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarStyle: styles.bar,
-        tabBarActiveTintColor: "#2196F3",
-        tabBarInactiveTintColor: "#9E9E9E",
-        tabBarLabelStyle: styles.label,
-      }}
-    >
-      <Tabs.Screen
-        name="(tabs)/home"
-        options={{ tabBarLabel: "Home", tabBarIcon: ({ focused }) => <TabIcon name="home" focused={focused} /> }}
-      />
-      <Tabs.Screen
-        name="(tabs)/requests"
-        options={{ tabBarLabel: "Requests", tabBarIcon: ({ focused }) => <TabIcon name="requests" focused={focused} /> }}
-      />
-      <Tabs.Screen
-        name="damage-reports"
-        options={{ tabBarLabel: "Reports", tabBarIcon: ({ focused }) => <TabIcon name="damage-reports" focused={focused} /> }}
-      />
-      <Tabs.Screen
-        name="borrow"
-        options={{
-          tabBarLabel: "",
-          tabBarIcon: () => (
-            <TouchableOpacity
-              style={styles.fab}
-              onPress={() => router.push("/(student)/borrow")}
-              activeOpacity={0.8}
-            >
-              <Text style={{ fontSize: 24, color: "#fff" }}>🔬</Text>
-            </TouchableOpacity>
-          ),
+    <View style={{ flex: 1 }}>
+      <Tabs
+        screenOptions={{
+          headerShown: false,
+          tabBarStyle: styles.bar,
+          tabBarActiveTintColor: COLORS.teal,
+          tabBarInactiveTintColor: COLORS.silver,
+          tabBarLabelStyle: styles.label,
         }}
-      />
-      <Tabs.Screen
-        name="(tabs)/notifications"
-        options={{ tabBarLabel: "Notif.", tabBarIcon: ({ focused }) => <TabIcon name="notifications" focused={focused} /> }}
-      />
-      <Tabs.Screen
-        name="(tabs)/profile"
-        options={{ tabBarLabel: "Profile", tabBarIcon: ({ focused }) => <TabIcon name="profile" focused={focused} /> }}
-      />
-    </Tabs>
+      >
+        <Tabs.Screen
+          name="(tabs)/home"
+          options={{
+            tabBarLabel: "Home",
+            tabBarIcon: ({ focused, color }) => <TabIcon name="home" focused={focused} color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="borrow"
+          options={{
+            tabBarLabel: "Borrow",
+            tabBarIcon: ({ focused, color }) => <TabIcon name="borrow" focused={focused} color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="(tabs)/requests"
+          options={{
+            tabBarLabel: "Requests",
+            tabBarIcon: ({ focused, color }) => <TabIcon name="requests" focused={focused} color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="(tabs)/notifications"
+          options={{
+            tabBarLabel: "Alerts",
+            tabBarIcon: ({ focused, color }) => <TabIcon name="notifications" focused={focused} color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="(tabs)/profile"
+          options={{
+            tabBarLabel: "Profile",
+            tabBarIcon: ({ focused, color }) => <TabIcon name="profile" focused={focused} color={color} />,
+          }}
+        />
+        <Tabs.Screen name="return" options={{ href: null }} />
+        <Tabs.Screen name="damage-reports" options={{ href: null }} />
+        <Tabs.Screen name="request/[id]" options={{ href: null }} />
+      </Tabs>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   bar: {
-    backgroundColor: "#fff",
-    borderTopWidth: 0,
-    elevation: 8,
-    height: 65,
-    paddingBottom: 8,
+    backgroundColor: COLORS.card,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+    height: Platform.OS === "web" ? 64 : 65,
+    paddingBottom: Platform.OS === "web" ? 4 : 8,
     paddingTop: 6,
   },
   label: { fontSize: 10, fontWeight: "600", marginTop: -2 },
-  fab: {
-    width: 52, height: 52, borderRadius: 16,
-    backgroundColor: "#2196F3", justifyContent: "center", alignItems: "center",
-    marginTop: -26, elevation: 6, shadowColor: "#2196F3", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35,
-  },
 });

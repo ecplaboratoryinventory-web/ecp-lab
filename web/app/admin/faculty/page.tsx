@@ -780,7 +780,7 @@ export default function FacultyPage() {
               </div>
               <div>
                 <label className="text-xs font-medium text-slate">Department <span className="text-red-500">*</span></label>
-                <Select value={form.department || undefined} onValueChange={(v) => setForm({ ...form, department: v || "" })}>
+                <Select value={form.department || null} onValueChange={(v) => setForm({ ...form, department: v || "" })}>
                   <SelectTrigger className="mt-1 border-[#dde4ec]"><SelectValue placeholder="Select..." /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Engineering">Engineering</SelectItem>

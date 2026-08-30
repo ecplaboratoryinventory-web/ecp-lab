@@ -20,8 +20,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Search, Download, Upload, Pencil, Trash2, Microscope, PackageCheck, Clock, AlertTriangle } from "lucide-react";
+import { Plus, Search, Download, Upload, Pencil, Trash2, Microscope, PackageCheck, Clock, AlertTriangle, ImagePlus, Loader2 } from "lucide-react";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { uploadImage } from "@/lib/cloudinary";
 
 interface Equipment {
   id: string;
@@ -80,6 +81,8 @@ export default function EquipmentPage() {
   const [csvError, setCsvError] = useState("");
   const [importing, setImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const withConfirm = (action: () => void) => {
     setConfirmAction(() => action);
@@ -94,6 +97,7 @@ export default function EquipmentPage() {
     quantity: 1,
     description: "",
     status: "available",
+    image_url: "",
   });
 
   const fetchData = async () => {
@@ -151,7 +155,7 @@ export default function EquipmentPage() {
 
   const openCreate = () => {
     setEditingId(null);
-    setForm({ name: "", serial_number: "", category_id: "", subcategory_id: "", quantity: 1, description: "", status: "available" });
+    setForm({ name: "", serial_number: "", category_id: "", subcategory_id: "", quantity: 1, description: "", status: "available", image_url: "" });
     setModalOpen(true);
   };
 
@@ -165,8 +169,24 @@ export default function EquipmentPage() {
       quantity: eq.quantity,
       description: eq.description || "",
       status: eq.status,
+      image_url: eq.image_url || "",
     });
     setModalOpen(true);
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingImage(true);
+    try {
+      const url = await uploadImage(file);
+      setForm((prev) => ({ ...prev, image_url: url }));
+    } catch {
+      toast({ title: "Upload Failed", description: "Could not upload the image. Check Cloudinary settings.", variant: "error" });
+    } finally {
+      setUploadingImage(false);
+      if (imageInputRef.current) imageInputRef.current.value = "";
+    }
   };
 
   const handleSave = async () => {
@@ -191,11 +211,11 @@ export default function EquipmentPage() {
     }
 
     if (editingId) {
-      const payload = { ...form };
+      const payload = { ...form, image_url: form.image_url ? form.image_url : null };
       await supabase.from("equipment").update(payload).eq("id", editingId);
       logActivity(undefined, "update", "equipment", editingId, { name: form.name });
     } else {
-      const payload = { ...form };
+      const payload = { ...form, image_url: form.image_url ? form.image_url : null, available_quantity: form.quantity };
       const { data } = await supabase.from("equipment").insert(payload).select("id").single();
       logActivity(undefined, "create", "equipment", data?.id, { name: form.name });
     }
@@ -434,6 +454,7 @@ export default function EquipmentPage() {
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-[#dde4ec] bg-[#f8f9fa] text-xs font-semibold uppercase tracking-wider text-silver">
+                  <th className="px-4 py-3">Image</th>
                   <th className="px-4 py-3">Equipment</th>
                   <th className="px-4 py-3">Serial #</th>
                   <th className="px-4 py-3">Category</th>
@@ -448,18 +469,27 @@ export default function EquipmentPage() {
                 {loading ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <tr key={i} className="border-b border-[#f0f0f0]">
-                      {Array.from({ length: 8 }).map((_, j) => (
+                      {Array.from({ length: 9 }).map((_, j) => (
                         <td key={j} className="px-4 py-3"><div className="h-4 w-full animate-pulse rounded bg-[#f0f0f0]" /></td>
                       ))}
                     </tr>
                   ))
                 ) : equipment.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-12 text-center text-silver">No equipment found</td>
+                    <td colSpan={9} className="px-4 py-12 text-center text-silver">No equipment found</td>
                   </tr>
                 ) : (
                   equipment.map((eq) => (
                     <tr key={eq.id} className="border-b border-[#f0f0f0] hover:bg-[#f8f9fa]">
+                      <td className="px-4 py-3">
+                        {eq.image_url ? (
+                          <img src={eq.image_url} alt={eq.name} className="h-10 w-10 rounded-lg object-cover" />
+                        ) : (
+                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#f0f4f8]">
+                            <Microscope className="h-4 w-4 text-silver" />
+                          </div>
+                        )}
+                      </td>
                       <td className="px-4 py-3 font-medium text-navy">{eq.name}</td>
                       <td className="px-4 py-3 font-mono text-xs text-silver">{eq.serial_number || "-"}</td>
                       <td className="px-4 py-3 text-silver">{eq.categories?.name || "-"}</td>
@@ -506,7 +536,7 @@ export default function EquipmentPage() {
               <div>
                 <label className="text-xs font-medium text-slate">Main Category <span className="text-red-500">*</span></label>
                 <Select
-                  value={form.category_id || undefined}
+                  value={form.category_id || null}
                   onValueChange={(v) => setForm({ ...form, category_id: v || "", subcategory_id: "" })}
                 >
                   <SelectTrigger className="mt-1 border-[#dde4ec]">
@@ -520,7 +550,7 @@ export default function EquipmentPage() {
               <div>
                 <label className="text-xs font-medium text-slate">Subcategory</label>
                 <Select
-                  value={form.subcategory_id || undefined}
+                  value={form.subcategory_id || null}
                   onValueChange={(v) => setForm({ ...form, subcategory_id: v || "" })}
                   disabled={!form.category_id}
                 >
@@ -540,7 +570,7 @@ export default function EquipmentPage() {
               </div>
               <div>
                 <label className="text-xs font-medium text-slate">Quantity / Stock <span className="text-red-500">*</span></label>
-                <Input type="number" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: +e.target.value })} className="mt-1 border-[#dde4ec]" />
+                <Input type="number" min={1} value={form.quantity} onChange={(e) => setForm({ ...form, quantity: Math.max(1, Number(e.target.value) || 1) })} className="mt-1 border-[#dde4ec]" />
               </div>
               <div>
                 <label className="text-xs font-medium text-slate">Status</label>
@@ -556,6 +586,49 @@ export default function EquipmentPage() {
               <div className="col-span-2">
                 <label className="text-xs font-medium text-slate">Description</label>
                 <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="mt-1 border-[#dde4ec]" placeholder="Brief description or notes" />
+              </div>
+              <div className="col-span-2">
+                <label className="text-xs font-medium text-slate">Equipment Image</label>
+                <div className="mt-1 flex items-center gap-3">
+                  <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#dde4ec] bg-[#f8f9fa]">
+                    {form.image_url ? (
+                      <img src={form.image_url} alt="Equipment" className="h-full w-full object-cover" />
+                    ) : (
+                      <ImagePlus className="h-6 w-6 text-silver/50" />
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => imageInputRef.current?.click()}
+                      disabled={uploadingImage}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-[#dde4ec] px-3 py-1.5 text-xs font-semibold text-slate hover:border-teal hover:text-teal disabled:opacity-60"
+                    >
+                      {uploadingImage ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <ImagePlus className="h-3.5 w-3.5" />
+                      )}
+                      {uploadingImage ? "Uploading..." : form.image_url ? "Change Image" : "Upload Image"}
+                    </button>
+                    {form.image_url && (
+                      <button
+                        type="button"
+                        onClick={() => setForm((p) => ({ ...p, image_url: "" }))}
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-red-500 hover:text-red-600"
+                      >
+                        <Trash2 className="h-3 w-3" /> Remove
+                      </button>
+                    )}
+                    <input
+                      ref={imageInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
             <div className="flex justify-end gap-2 pt-2">

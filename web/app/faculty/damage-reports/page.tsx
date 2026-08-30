@@ -12,15 +12,11 @@ import {
 } from "@/components/ui/dialog";
 import {
   AlertTriangle,
-  CheckCircle,
-  XCircle,
   Eye,
   Search,
-  FileText,
+  ChevronLeft,
 } from "lucide-react";
-import { ConfirmDialog } from "@/components/shared/confirm-dialog";
-import { createNotification } from "@/lib/notifications";
-import { generateDamageReport } from "@/lib/pdf";
+import Link from "next/link";
 
 interface DamageReport {
   id: string;
@@ -47,7 +43,6 @@ interface DamageReport {
 
 type StatusFilter = "all" | "pending" | "replaced";
 type Status = "pending" | "resolved" | "dismissed";
-type CategoryFilter = "all" | "electronics" | "chemistry" | "physics";
 
 const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: "all", label: "All" },
@@ -55,7 +50,7 @@ const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: "replaced", label: "Replaced" },
 ];
 
-const CATEGORY_OPTIONS: { value: CategoryFilter; label: string }[] = [
+const CATEGORY_OPTIONS: { value: string; label: string }[] = [
   { value: "all", label: "All" },
   { value: "electronics", label: "Electronics" },
   { value: "chemistry", label: "Chemistry" },
@@ -108,39 +103,34 @@ function FilterPills({
   );
 }
 
-export default function DamageReportsPage() {
+export default function FacultyDamageReportsPage() {
   const supabase = createClient();
 
-  const [reports, setReports] = useState<DamageReport[]>([]);
   const [loading, setLoading] = useState(true);
-  const [userName, setUserName] = useState("");
+  const [checking, setChecking] = useState(true);
+  const [userDept, setUserDept] = useState("");
+  const [reports, setReports] = useState<DamageReport[]>([]);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [stats, setStats] = useState({ total: 0, pending: 0, replaced: 0 });
 
   const [viewOpen, setViewOpen] = useState(false);
   const [selectedReport, setSelectedReport] = useState<DamageReport | null>(null);
 
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [confirmAction, setConfirmAction] = useState<(() => void) | null>(null);
-
-  const withConfirm = (action: () => void) => {
-    setConfirmAction(() => action);
-    setConfirmOpen(true);
-  };
-
   const fetchData = useCallback(async () => {
     setLoading(true);
 
     const { data: authData } = await supabase.auth.getUser();
     const userId = authData.user?.id;
+
     const { data: profile } = await supabase
       .from("users")
-      .select("full_name")
+      .select("department")
       .eq("id", userId || "")
       .single();
-    if (profile?.full_name) setUserName(profile.full_name);
+    const dept = profile?.department || "";
+    setUserDept(dept);
 
     const { data } = await supabase
       .from("damage_reports")
@@ -153,15 +143,18 @@ export default function DamageReportsPage() {
       )
       .order("created_at", { ascending: false });
 
-    const list = (data as DamageReport[]) || [];
-    setReports(list);
+    const deptReports = ((data as DamageReport[]) || []).filter(
+      (r) => r.equipment?.department === dept
+    );
+    setReports(deptReports);
     setStats({
-      total: list.length,
-      pending: list.filter((r) => r.status === "pending").length,
-      replaced: list.filter((r) => r.status === "resolved").length,
+      total: deptReports.length,
+      pending: deptReports.filter((r) => r.status === "pending").length,
+      replaced: deptReports.filter((r) => r.status === "resolved").length,
     });
 
     setLoading(false);
+    setChecking(false);
   }, []);
 
   useEffect(() => {
@@ -176,61 +169,12 @@ export default function DamageReportsPage() {
       ?.quantity || 1;
   const getAssessedBy = (r: DamageReport) => r.resolved?.full_name || "—";
 
-  const handleDownloadPDF = () => {
-    const categoryReports =
-      categoryFilter === "all"
-        ? reports
-        : reports.filter(
-            (r) => (r.equipment?.categories?.name || "").toLowerCase() === categoryFilter
-          );
-
-    const fmt = (d: string) =>
-      new Date(d).toLocaleDateString("en-US", {
-        month: "long",
-        day: "numeric",
-        year: "numeric",
-      });
-
-    const dates = categoryReports.map((r) => r.created_at).sort();
-    const periodStart = dates.length ? fmt(dates[0]) : null;
-    const periodEnd = dates.length ? fmt(dates[dates.length - 1]) : null;
-
-    const catLabel = CATEGORY_OPTIONS.find((c) => c.value === categoryFilter)?.label;
-    const reportTitle =
-      catLabel && catLabel !== "All"
-        ? `${catLabel.toUpperCase()} DAMAGE REPORTS`
-        : "DAMAGE REPORTS";
-
-    generateDamageReport({
-      reportTitle,
-      periodStart,
-      periodEnd,
-      generatedBy: userName || "System",
-      stats: {
-        total: categoryReports.length,
-        pending: categoryReports.filter((r) => r.status === "pending").length,
-        replaced: categoryReports.filter((r) => r.status === "resolved").length,
-      },
-      rows: categoryReports.map((r) => ({
-        date: fmt(r.created_at),
-        borrower: r.users?.full_name || "Unknown",
-        equipment: r.equipment?.name || "-",
-        qty: getQty(r),
-        assessedBy: r.resolved?.full_name || "Laboratory Custodian",
-        status:
-          r.status === "resolved"
-            ? "Replaced"
-            : r.status === "dismissed"
-              ? "Dismissed"
-              : "Pending",
-      })),
-    });
-  };
+  const showCategoryFilter = userDept === "Science";
 
   const filtered = reports.filter((r) => {
     if (statusFilter === "pending" && r.status !== "pending") return false;
     if (statusFilter === "replaced" && r.status !== "resolved") return false;
-    if (categoryFilter !== "all") {
+    if (showCategoryFilter && categoryFilter !== "all") {
       const cat = (r.equipment?.categories?.name || "").toLowerCase();
       if (cat !== categoryFilter) return false;
     }
@@ -248,44 +192,6 @@ export default function DamageReportsPage() {
     setViewOpen(true);
   };
 
-  const handleReplace = async () => {
-    if (!selectedReport) return;
-    const { data: authData } = await supabase.auth.getUser();
-    const userId = authData.user?.id;
-
-    await supabase
-      .from("damage_reports")
-      .update({
-        status: "resolved",
-        resolution_notes: "Replaced damaged items",
-        resolved_by: userId,
-      })
-      .eq("id", selectedReport.id);
-
-    const eqName = selectedReport.equipment?.name || "equipment";
-    await createNotification(
-      selectedReport.user_id,
-      "Damage Report Replaced",
-      `Your damage report for ${eqName} has been replaced.`,
-      "damage_report",
-      "damage_report",
-      selectedReport.id
-    );
-
-    setViewOpen(false);
-    setSelectedReport(null);
-    fetchData();
-  };
-
-  const handleDismiss = (id: string) => {
-    withConfirm(async () => {
-      await supabase.from("damage_reports").update({ status: "dismissed" }).eq("id", id);
-      setViewOpen(false);
-      setSelectedReport(null);
-      fetchData();
-    });
-  };
-
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString("en-US", {
       year: "numeric",
@@ -294,24 +200,35 @@ export default function DamageReportsPage() {
     });
   };
 
+  if (checking) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#f2f5f9]">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-teal border-t-transparent" />
+      </div>
+    );
+  }
+
   return (
     <>
       <div>
         <div className="mb-6 rounded-xl border border-[#dde4ec] bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between">
             <h2 className="flex items-center gap-2 text-xl font-bold text-navy">
+              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-50 text-red-500">
+                <AlertTriangle className="h-4 w-4" />
+              </span>
               Damage Reports
             </h2>
-            <div className="flex items-center gap-2">
+            <Link href="/faculty/dashboard">
               <Button
+                variant="outline"
                 size="sm"
-                onClick={handleDownloadPDF}
-                className="gap-1.5 bg-teal hover:bg-teal-dark"
+                className="gap-1.5 border-[#dde4ec] text-silver"
               >
-                <FileText className="h-3.5 w-3.5" />
-                Download PDF
+                <ChevronLeft className="h-3.5 w-3.5" />
+                Back
               </Button>
-            </div>
+            </Link>
           </div>
         </div>
 
@@ -345,15 +262,17 @@ export default function DamageReportsPage() {
             />
           </div>
 
-          {/* Category */}
-          <div>
-            <p className="mb-1.5 text-xs font-bold text-navy">Category</p>
-            <FilterPills
-              options={CATEGORY_OPTIONS}
-              value={categoryFilter}
-              onChange={(v) => setCategoryFilter(v as CategoryFilter)}
-            />
-          </div>
+          {/* Category — only for Science Faculty */}
+          {showCategoryFilter && (
+            <div>
+              <p className="mb-1.5 text-xs font-bold text-navy">Category</p>
+              <FilterPills
+                options={CATEGORY_OPTIONS}
+                value={categoryFilter}
+                onChange={setCategoryFilter}
+              />
+            </div>
+          )}
 
           {/* Search */}
           <div>
@@ -382,8 +301,7 @@ export default function DamageReportsPage() {
                   <th className="px-4 py-3">Damaged Equipment</th>
                   <th className="px-4 py-3 text-center">Qty.</th>
                   <th className="px-4 py-3">Assessed By</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3 text-right">Action</th>
+                  <th className="px-4 py-3">Status / Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -397,16 +315,15 @@ export default function DamageReportsPage() {
                       <td className="px-4 py-3"><Skeleton className="h-4 w-6" /></td>
                       <td className="px-4 py-3"><Skeleton className="h-4 w-20" /></td>
                       <td className="px-4 py-3"><Skeleton className="h-5 w-24" /></td>
-                      <td className="px-4 py-3"><Skeleton className="h-5 w-16" /></td>
                     </tr>
                   ))
                 ) : filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-16 text-center">
+                    <td colSpan={7} className="px-4 py-16 text-center">
                       <AlertTriangle className="mx-auto mb-3 h-10 w-10 text-silver/40" />
                       <p className="text-sm font-medium text-silver">No damage reports found</p>
                       <p className="mt-1 text-xs text-silver/60">
-                        {statusFilter !== "all" || categoryFilter !== "all" || search
+                        {statusFilter !== "all" || (showCategoryFilter && categoryFilter !== "all") || search
                           ? "No reports match the selected filter."
                           : "Everything looks good!"}
                       </p>
@@ -430,18 +347,18 @@ export default function DamageReportsPage() {
                         </td>
                         <td className="px-4 py-3 text-silver">{getAssessedBy(r)}</td>
                         <td className="px-4 py-3">
-                          <span className={`inline-flex h-[26px] items-center gap-1.5 rounded-full px-2.5 text-[11px] font-semibold uppercase ${cfg.className}`}>
-                            <span className={`h-1.5 w-1.5 rounded-full ${STATUS_DOT[r.status] || "bg-silver"}`} />
-                            {cfg.label}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <button
-                            onClick={() => openView(r)}
-                            className="inline-flex h-[26px] items-center gap-1 rounded-md border border-[#dde4ec] px-2.5 text-[0.75rem] font-semibold text-navy hover:border-teal hover:text-teal"
-                          >
-                            <Eye className="h-3 w-3" /> View
-                          </button>
+                          <div className="flex items-center gap-3">
+                            <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase ${cfg.className}`}>
+                              <span className={`h-1.5 w-1.5 rounded-full ${STATUS_DOT[r.status] || "bg-silver"}`} />
+                              {cfg.label}
+                            </span>
+                            <button
+                              onClick={() => openView(r)}
+                              className="flex items-center gap-1 text-[0.78rem] font-semibold text-[#0ea5a0] underline hover:text-teal-dark"
+                            >
+                              <Eye className="h-3 w-3" /> View
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -486,10 +403,10 @@ export default function DamageReportsPage() {
                         <tr className="border-b border-[#f0f0f0] last:border-0">
                           <td className="w-40 bg-[#f8f9fa] px-3 py-2 font-semibold text-navy">Status</td>
                           <td className="px-3 py-2">
-                            <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase ${
+                            <span className={`inline-flex items-center gap-1.5 text-sm font-semibold uppercase ${
                               STATUS_BADGE[selectedReport.status]?.className || "text-silver"
                             }`}>
-                              <span className={`h-1.5 w-1.5 rounded-full ${STATUS_DOT[selectedReport.status] || "bg-silver"}`} />
+                              <span className={`h-2 w-2 rounded-full ${STATUS_DOT[selectedReport.status] || "bg-silver"}`} />
                               {STATUS_BADGE[selectedReport.status]?.label || selectedReport.status}
                             </span>
                           </td>
@@ -532,46 +449,16 @@ export default function DamageReportsPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between pt-2">
-                  <div>
-                    {selectedReport.status === "pending" && (
-                      <Button
-                        variant="outline"
-                        onClick={() => handleDismiss(selectedReport.id)}
-                        className="gap-1.5 border-[#dde4ec] text-red-500 hover:border-red-300 hover:bg-red-50"
-                      >
-                        <XCircle className="h-3.5 w-3.5" /> Dismiss
-                      </Button>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => setViewOpen(false)} className="border-[#dde4ec]">
-                      Close
-                    </Button>
-                    {selectedReport.status === "pending" && (
-                      <Button onClick={handleReplace} className="gap-1.5 bg-green-500 hover:bg-green-600">
-                        <CheckCircle className="h-3.5 w-3.5" /> Replace Damaged Items
-                      </Button>
-                    )}
-                  </div>
+                <div className="flex justify-end pt-2">
+                  <Button variant="outline" onClick={() => setViewOpen(false)} className="border-[#dde4ec]">
+                    Close
+                  </Button>
                 </div>
               </div>
             )}
           </DialogContent>
         </Dialog>
       </div>
-      <ConfirmDialog
-        open={confirmOpen}
-        onOpenChange={setConfirmOpen}
-        title="Dismiss Report?"
-        description="Are you sure you want to dismiss this damage report?"
-        confirmLabel="Dismiss"
-        variant="warning"
-        onConfirm={() => {
-          confirmAction?.();
-          setConfirmOpen(false);
-        }}
-      />
     </>
   );
 }
