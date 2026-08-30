@@ -215,7 +215,7 @@ export default function FacultyEquipmentPage() {
 
   const handleBorrow = () => {
     if (selectedIds.size === 0) return;
-    router.push(`/faculty/borrow?eq=${Array.from(selectedIds).join(",")}`);
+    router.push(`/faculty/borrow-request?eq=${Array.from(selectedIds).join(",")}`);
   };
 
   return (

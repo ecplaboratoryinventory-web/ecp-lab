@@ -16,7 +16,7 @@ import { FacultyHeader } from "@/components/faculty/header";
 const navigation = [
   { title: "Dashboard", href: "/faculty/dashboard", icon: LayoutDashboard },
   { title: "Equipment", href: "/faculty/equipment", icon: Microscope },
-  { title: "Borrow Item", href: "/faculty/borrow", icon: HandHelping },
+  { title: "Borrowings", href: "/faculty/borrow", icon: HandHelping },
   { title: "Notifications", href: "/faculty/notifications", icon: Bell },
   { title: "Settings", href: "/faculty/profile", icon: Settings },
 ];
