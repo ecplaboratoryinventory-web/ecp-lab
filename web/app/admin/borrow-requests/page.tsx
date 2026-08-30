@@ -200,6 +200,8 @@ export default function BorrowRequestsPage() {
     if (statusFilter !== "all") {
       if (statusFilter === "rejected") {
         query = query.in("status", ["denied", "rejected"]);
+      } else if (statusFilter === "borrowed") {
+        query = query.in("status", ["approved", "borrowed"]);
       } else if (statusFilter === "overdue") {
         query = query.in("status", ["approved", "borrowed"]);
       } else {
