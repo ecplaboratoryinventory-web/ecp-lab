@@ -29,6 +29,7 @@ interface Equipment {
   name: string;
   serial_number: string;
   category_id: string;
+  subcategory_id: string | null;
   quantity: number;
   available_quantity: number;
   status: string;
@@ -41,6 +42,7 @@ interface Equipment {
   subject_tags: string[] | null;
   image_url: string | null;
   categories?: { name: string };
+  subcategories?: { name: string };
 }
 
 interface Category {
@@ -101,7 +103,7 @@ export default function EquipmentPage() {
   });
 
   const fetchData = async () => {
-    let query = supabase.from("equipment").select("*, categories(name)");
+    let query = supabase.from("equipment").select("*, categories(name), subcategories(name)");
 
     if (statusFilter !== "all") query = query.eq("status", statusFilter);
     if (categoryFilter !== "All") {
@@ -456,12 +458,10 @@ export default function EquipmentPage() {
                 <tr className="border-b border-[#dde4ec] bg-[#f8f9fa] text-xs font-semibold uppercase tracking-wider text-silver">
                   <th className="px-4 py-3">Image</th>
                   <th className="px-4 py-3">Equipment</th>
-                  <th className="px-4 py-3">Serial #</th>
                   <th className="px-4 py-3">Category</th>
+                  <th className="px-4 py-3">Subcategory</th>
                   <th className="px-4 py-3 text-center">Qty</th>
                   <th className="px-4 py-3 text-center">Available</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Location</th>
                   <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
               </thead>
@@ -469,14 +469,14 @@ export default function EquipmentPage() {
                 {loading ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <tr key={i} className="border-b border-[#f0f0f0]">
-                      {Array.from({ length: 9 }).map((_, j) => (
+                      {Array.from({ length: 7 }).map((_, j) => (
                         <td key={j} className="px-4 py-3"><div className="h-4 w-full animate-pulse rounded bg-[#f0f0f0]" /></td>
                       ))}
                     </tr>
                   ))
                 ) : equipment.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="px-4 py-12 text-center text-silver">No equipment found</td>
+                    <td colSpan={7} className="px-4 py-12 text-center text-silver">No equipment found</td>
                   </tr>
                 ) : (
                   equipment.map((eq) => (
@@ -491,20 +491,10 @@ export default function EquipmentPage() {
                         )}
                       </td>
                       <td className="px-4 py-3 font-medium text-navy">{eq.name}</td>
-                      <td className="px-4 py-3 font-mono text-xs text-silver">{eq.serial_number || "-"}</td>
                       <td className="px-4 py-3 text-silver">{eq.categories?.name || "-"}</td>
+                      <td className="px-4 py-3 text-silver">{eq.subcategories?.name || "-"}</td>
                       <td className="px-4 py-3 text-center">{eq.quantity}</td>
                       <td className="px-4 py-3 text-center">{eq.available_quantity}</td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase ${
-                          eq.status === "available" ? "bg-green-100 text-green-700" :
-                          eq.status === "borrowed" ? "bg-blue-100 text-blue-700" :
-                          "bg-red-100 text-red-700"
-                        }`}>
-                          {eq.status === "damaged" ? "Damaged" : eq.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-silver">{eq.location || "-"}</td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex justify-end gap-1">
                           <Button variant="ghost" size="sm" onClick={() => openEdit(eq)} className="h-8 w-8 p-0">
