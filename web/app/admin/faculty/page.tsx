@@ -23,6 +23,8 @@ import {
 } from "@/components/ui/select";
 import { Plus, Search, Download, Upload, Pencil, Trash2, UserCheck, Users } from "lucide-react";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import * as XLSX from "xlsx-js-style";
+import { downloadXlsxTemplate } from "@/lib/xlsx-template";
 
 interface FacultyUser {
   id: string;
@@ -343,14 +345,10 @@ export default function FacultyPage() {
   };
 
   const handleDownloadTemplate = () => {
-    const csv = "First Name*,Last Name*,Middle Name,Email*,Username*,ID Number*,Role\nJohn,Doe,Middle,john.doe@ecp.edu.ph,john.doe,F12345,Faculty\nJane,Smith,Ann,jane.smith@ecp.edu.ph,jane.smith,F67890,Faculty";
-    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "faculty_template.csv";
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadXlsxTemplate(
+      ["FIRSTNAME", "LASTNAME", "MIDDLENAME", "EMAIL", "ID_NO", "DEPARTMENT"],
+      "faculty_import_template.xlsx"
+    );
   };
 
   const handleExportCSV = () => {
@@ -374,16 +372,32 @@ export default function FacultyPage() {
     URL.revokeObjectURL(url);
   };
 
-  const handleCsvFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCsvFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setCsvData([]);
     setCsvResult(null);
     setCsvError("");
 
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const text = ev.target?.result as string;
+    const ext = file.name.split(".").pop()?.toLowerCase();
+    const requiredColumns = ["firstname", "lastname", "email", "id_no", "department"];
+
+    let headers: string[];
+    let dataRows: string[][];
+
+    if (ext === "xlsx" || ext === "xls") {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: "array" });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" }) as unknown[][];
+      if (!aoa || aoa.length < 2) {
+        setCsvError("File must have a header row and at least one data row.");
+        return;
+      }
+      headers = (aoa[0] || []).map((v) => String(v).trim().toLowerCase());
+      dataRows = aoa.slice(1).map((r) => (r || []).map((v) => String(v).trim()));
+    } else {
+      const text = await file.text();
       const lines = text
         .replace(/^\uFEFF/, "")
         .split("\n")
@@ -395,36 +409,36 @@ export default function FacultyPage() {
         return;
       }
 
-      const headers = lines[0].toLowerCase().split(",");
-      const requiredColumns = ["firstname", "lastname", "email", "id_no", "department"];
-      const missing = requiredColumns.filter((c) => !headers.includes(c));
-      if (missing.length > 0) {
-        setCsvError(`Missing required columns: ${missing.join(", ")}`);
-        return;
-      }
+      headers = lines[0].toLowerCase().split(",").map((h) => h.trim());
+      dataRows = lines.slice(1).map((l) => l.split(",").map((v) => v.trim()));
+    }
 
-      const firstnameIdx = headers.indexOf("firstname");
-      const lastnameIdx = headers.indexOf("lastname");
-      const middlenameIdx = headers.indexOf("middlename");
-      const emailIdx = headers.indexOf("email");
-      const idNoIdx = headers.indexOf("id_no");
-      const deptIdx = headers.indexOf("department");
+    const missing = requiredColumns.filter((c) => !headers.includes(c));
+    if (missing.length > 0) {
+      setCsvError(`Missing required columns: ${missing.join(", ")}`);
+      return;
+    }
 
-      const parsed: CsvRow[] = [];
-      for (let i = 1; i < lines.length; i++) {
-        const cols = lines[i].split(",");
-        parsed.push({
-          firstname: (cols[firstnameIdx] || "").trim(),
-          lastname: (cols[lastnameIdx] || "").trim(),
-          middlename: (cols[middlenameIdx] || "").trim(),
-          email: (cols[emailIdx] || "").trim(),
-          id_no: (cols[idNoIdx] || "").trim(),
-          department: (cols[deptIdx] || "").trim(),
-        });
-      }
-      setCsvData(parsed);
-    };
-    reader.readAsText(file);
+    const firstnameIdx = headers.indexOf("firstname");
+    const lastnameIdx = headers.indexOf("lastname");
+    const middlenameIdx = headers.indexOf("middlename");
+    const emailIdx = headers.indexOf("email");
+    const idNoIdx = headers.indexOf("id_no");
+    const deptIdx = headers.indexOf("department");
+
+    const parsed: CsvRow[] = [];
+    for (const cols of dataRows) {
+      if (cols.every((v) => v === "")) continue;
+      parsed.push({
+        firstname: (cols[firstnameIdx] || "").trim(),
+        lastname: (cols[lastnameIdx] || "").trim(),
+        middlename: (cols[middlenameIdx] || "").trim(),
+        email: (cols[emailIdx] || "").trim(),
+        id_no: (cols[idNoIdx] || "").trim(),
+        department: (cols[deptIdx] || "").trim(),
+      });
+    }
+    setCsvData(parsed);
   };
 
   const handleCsvImport = async () => {
@@ -870,11 +884,11 @@ export default function FacultyPage() {
             <div className="space-y-4">
               <div className="rounded-lg border border-dashed border-[#dde4ec] bg-[#f8f9fa] p-6 text-center">
                 <Upload className="mx-auto h-8 w-8 text-silver" />
-                <p className="mt-2 text-sm text-silver">Select a CSV file to import faculty members</p>
+                <p className="mt-2 text-sm text-silver">Select a CSV or Excel file to import faculty members</p>
                 <p className="mt-1 text-xs text-silver/60">Required columns: firstname, lastname, email, id_no, department</p>
                 <Input
                   type="file"
-                  accept=".csv"
+                  accept=".csv,.xlsx,.xls"
                   onChange={handleCsvFile}
                   className="mt-3 border-[#dde4ec]"
                 />

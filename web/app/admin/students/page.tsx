@@ -34,6 +34,8 @@ import {
   UserX,
   BookOpen,
 } from "lucide-react";
+import * as XLSX from "xlsx-js-style";
+import { downloadXlsxTemplate } from "@/lib/xlsx-template";
 
 interface Student {
   id: string;
@@ -301,12 +303,76 @@ export default function StudentsPage() {
     URL.revokeObjectURL(url);
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleDownloadTemplate = () => {
+    downloadXlsxTemplate(
+      [
+        "FIRSTNAME",
+        "LASTNAME",
+        "MIDDLENAME",
+        "ID_NO",
+        "EMAIL",
+        "COURSE",
+        "SECTION",
+        "ENROLLED_SUBJECTS",
+      ],
+      "students_import_template.xlsx"
+    );
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setCsvError("");
     setCsvPreview([]);
     setCsvHeaders([]);
+
+    const ext = file.name.split(".").pop()?.toLowerCase();
+    const requiredColumns = ["firstname", "lastname", "id_no", "course"];
+
+    const buildRows = (headers: string[], dataRows: string[][]): CsvRow[] | null => {
+      const missing = requiredColumns.filter((c) => !headers.includes(c));
+      if (missing.length > 0) {
+        setCsvError(`Missing required columns: ${missing.join(", ")}`);
+        return null;
+      }
+      const rows: CsvRow[] = [];
+      for (const values of dataRows) {
+        const row: Record<string, string> = {};
+        headers.forEach((h, idx) => {
+          row[h] = values[idx] || "";
+        });
+        if (!row.firstname && !row.lastname && !row.id_no && !row.course) continue;
+        rows.push({
+          firstname: row.firstname || "",
+          lastname: row.lastname || "",
+          middlename: row.middlename || "",
+          id_no: row.id_no || "",
+          email: row.email || "",
+          course: row.course || "",
+          section: row.section || "",
+          enrolled_subjects: row.enrolled_subjects || "",
+        });
+      }
+      return rows;
+    };
+
+    if (ext === "xlsx" || ext === "xls") {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: "array" });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" }) as unknown[][];
+      if (!aoa || aoa.length < 2) {
+        setCsvError("File must have a header row and at least one data row.");
+        return;
+      }
+      const headerRow = (aoa[0] || []).map((v) => String(v).trim());
+      const headers = headerRow.map((h) => h.toLowerCase().replace(/["\r]/g, ""));
+      setCsvHeaders(headerRow);
+      const dataRows = aoa.slice(1).map((r) => (r || []).map((v) => String(v).trim()));
+      const rows = buildRows(headers, dataRows);
+      if (rows) setCsvPreview(rows);
+      return;
+    }
 
     const reader = new FileReader();
     reader.onload = (ev) => {
@@ -319,32 +385,9 @@ export default function StudentsPage() {
       const headers = lines[0].split(",").map((h) => h.trim().toLowerCase().replace(/["\r]/g, ""));
       setCsvHeaders(lines[0].split(",").map((h) => h.trim().replace(/["\r]/g, "")));
 
-      const requiredColumns = ["firstname", "lastname", "id_no", "course"];
-      const missing = requiredColumns.filter((c) => !headers.includes(c));
-      if (missing.length > 0) {
-        setCsvError(`Missing required columns: ${missing.join(", ")}`);
-        return;
-      }
-
-      const rows: CsvRow[] = [];
-      for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split(",").map((v) => v.trim().replace(/["\r]/g, ""));
-        const row: Record<string, string> = {};
-        headers.forEach((h, idx) => {
-          row[h] = values[idx] || "";
-        });
-        rows.push({
-          firstname: row.firstname || "",
-          lastname: row.lastname || "",
-          middlename: row.middlename || "",
-          id_no: row.id_no || "",
-          email: row.email || "",
-          course: row.course || "",
-          section: row.section || "",
-          enrolled_subjects: row.enrolled_subjects || "",
-        });
-      }
-      setCsvPreview(rows);
+      const dataRows = lines.slice(1).map((l) => l.split(",").map((v) => v.trim().replace(/["\r]/g, "")));
+      const rows = buildRows(headers, dataRows);
+      if (rows) setCsvPreview(rows);
     };
     reader.readAsText(file);
   };
@@ -407,6 +450,9 @@ export default function StudentsPage() {
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={handleExportCSV} className="gap-1.5 border-[#dde4ec] text-slate">
               <Download className="h-3.5 w-3.5" /> Export CSV
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleDownloadTemplate} className="gap-1.5 border-[#dde4ec] text-slate">
+              <Download className="h-3.5 w-3.5" /> Download Template
             </Button>
             <Button variant="outline" size="sm" onClick={() => setImportOpen(true)} className="gap-1.5 border-[#dde4ec] text-slate">
               <Upload className="h-3.5 w-3.5" /> Import CSV
@@ -752,7 +798,7 @@ export default function StudentsPage() {
               <Input
                 ref={fileInputRef}
                 type="file"
-                accept=".csv"
+                accept=".csv,.xlsx,.xls"
                 onChange={handleFileSelect}
                 className="mt-1 border-[#dde4ec]"
               />

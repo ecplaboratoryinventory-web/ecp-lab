@@ -21,10 +21,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Search, Download, Upload, Pencil, Trash2, Microscope, PackageCheck, Clock, AlertTriangle, ImagePlus, Loader2 } from "lucide-react";
+import { Plus, Search, Download, Upload, Pencil, Trash2, Microscope, PackageCheck, Clock, AlertTriangle, ImagePlus, Loader2, FileDown } from "lucide-react";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { uploadImage } from "@/lib/cloudinary";
 import { QuantityStepper } from "@/components/ui/quantity-stepper";
+import * as XLSX from "xlsx-js-style";
+import { downloadXlsxTemplate } from "@/lib/xlsx-template";
 
 interface Equipment {
   id: string;
@@ -262,17 +264,74 @@ export default function EquipmentPage() {
     URL.revokeObjectURL(url);
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleDownloadTemplate = () => {
+    downloadXlsxTemplate(
+      [
+        "NAME",
+        "CATEGORY",
+        "SUBCATEGORY",
+        "QUANTITY",
+        "AVAILABLE_QUANTITY",
+        "SERIAL_NUMBER",
+        "BRAND",
+        "MODEL",
+        "LOCATION",
+        "CONDITION",
+        "DESCRIPTION",
+        "STATUS",
+      ],
+      "equipment_import_template.xlsx"
+    );
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setCsvError("");
     setCsvPreview([]);
     setCsvHeaders([]);
 
+    const ext = file.name.split(".").pop()?.toLowerCase();
+    const requiredColumns = ["name", "category"];
+
+    if (ext === "xlsx" || ext === "xls") {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: "array" });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" }) as unknown[][];
+      if (!aoa || aoa.length < 2) {
+        setCsvError("File must have a header row and at least one data row.");
+        return;
+      }
+      const headerRow = (aoa[0] || []).map((v) => String(v).trim());
+      const headers = headerRow.map((h) => h.toLowerCase().replace(/["\r]/g, ""));
+      setCsvHeaders(headerRow);
+      const missing = requiredColumns.filter((c) => !headers.includes(c));
+      if (missing.length > 0) {
+        setCsvError(`Missing required columns: ${missing.join(", ")}. Required: name, category`);
+        return;
+      }
+      const rows: Record<string, string>[] = [];
+      for (let i = 1; i < aoa.length; i++) {
+        const values = (aoa[i] || []).map((v) => String(v).trim());
+        if (values.every((v) => v === "")) continue;
+        const row: Record<string, string> = {};
+        headers.forEach((h, idx) => {
+          row[h] = values[idx] || "";
+        });
+        rows.push(row);
+      }
+      setCsvPreview(rows);
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = (ev) => {
       const text = ev.target?.result as string;
-      const lines = text.trim().split("\n");
+      const allLines = text.split(/\r?\n/);
+      const lines = allLines
+        .map((l) => l.trim())
+        .filter((l) => l.length > 0 && !l.startsWith("#"));
       if (lines.length < 2) {
         setCsvError("CSV file must have a header row and at least one data row.");
         return;
@@ -280,7 +339,6 @@ export default function EquipmentPage() {
       const headers = lines[0].split(",").map((h) => h.trim().toLowerCase().replace(/["\r]/g, ""));
       setCsvHeaders(lines[0].split(",").map((h) => h.trim().replace(/["\r]/g, "")));
 
-      const requiredColumns = ["name", "category"];
       const missing = requiredColumns.filter((c) => !headers.includes(c));
       if (missing.length > 0) {
         setCsvError(`Missing required columns: ${missing.join(", ")}. Required: name, category`);
@@ -313,6 +371,14 @@ export default function EquipmentPage() {
       });
     }
 
+    const subcategoryMap = new Map<string, { id: string; categoryId: string }>();
+    const { data: allSubcategories } = await supabase.from("subcategories").select("id, category_id, name");
+    if (allSubcategories) {
+      allSubcategories.forEach((s: { id: string; category_id: string; name: string }) => {
+        subcategoryMap.set(s.name.toLowerCase(), { id: s.id, categoryId: s.category_id });
+      });
+    }
+
     let imported = 0;
     for (const row of csvPreview) {
       if (!row.name || !row.category) continue;
@@ -332,9 +398,33 @@ export default function EquipmentPage() {
         }
       }
 
+      let subcategoryId: string | null = null;
+      if (row.subcategory && row.subcategory.trim()) {
+        const sub = subcategoryMap.get(row.subcategory.trim().toLowerCase());
+        if (sub && (!categoryId || sub.categoryId === categoryId)) {
+          subcategoryId = sub.id;
+        } else if (sub && categoryId) {
+          subcategoryId = sub.id;
+        } else {
+          const { data: newSub } = await supabase
+            .from("subcategories")
+            .insert({
+              category_id: categoryId,
+              name: row.subcategory.trim(),
+            })
+            .select("id")
+            .single();
+          if (newSub?.id) {
+            subcategoryId = newSub.id;
+            subcategoryMap.set(row.subcategory.trim().toLowerCase(), { id: newSub.id, categoryId: categoryId! });
+          }
+        }
+      }
+
       const equipmentRow = {
         name: row.name.trim(),
         category_id: categoryId || null,
+        subcategory_id: subcategoryId,
         quantity: parseInt(row.quantity) || 1,
         available_quantity: parseInt(row.available_quantity) || parseInt(row.quantity) || 1,
         serial_number: row.serial_number?.trim() || null,
@@ -394,6 +484,9 @@ export default function EquipmentPage() {
               </Button>
               <Button variant="outline" size="sm" onClick={() => setImportOpen(true)} className="gap-1.5 border-[#dde4ec] text-slate">
                 <Upload className="h-3.5 w-3.5" /> Import CSV
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleDownloadTemplate} className="gap-1.5 border-[#dde4ec] text-slate">
+                <FileDown className="h-3.5 w-3.5" /> Download Template
               </Button>
               <Button size="sm" onClick={openCreate} className="gap-1.5 bg-teal hover:bg-teal-dark">
                 <Plus className="h-3.5 w-3.5" /> Add Equipment
@@ -686,19 +779,29 @@ export default function EquipmentPage() {
       }}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle className="text-navy">Import Equipment from CSV</DialogTitle>
+            <DialogTitle className="text-navy">Import Equipment</DialogTitle>
             <DialogDescription className="text-silver">
-              Upload a CSV file with columns: name, category (required), plus quantity, serial_number, subcategory, status, description
+              Upload a CSV or Excel (.xlsx) file. Required columns: name, category. Optional: quantity, serial_number, subcategory, status, description, and more.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-navy">Upload your file</p>
+              <button
+                type="button"
+                onClick={handleDownloadTemplate}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-teal hover:underline"
+              >
+                <FileDown className="h-3.5 w-3.5" /> Download Template
+              </button>
+            </div>
             <div>
-              <label className="text-xs font-medium text-slate">CSV File</label>
+              <label className="text-xs font-medium text-slate">CSV / Excel File</label>
               <Input
                 ref={fileInputRef}
                 type="file"
-                accept=".csv"
+                accept=".csv,.xlsx,.xls"
                 onChange={handleFileSelect}
                 className="mt-1 border-[#dde4ec]"
               />
