@@ -70,6 +70,7 @@ export default function EquipmentPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("All");
+  const [subcategoryFilter, setSubcategoryFilter] = useState("all");
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [stats, setStats] = useState({ total: 0, available: 0, borrowed: 0, damaged: 0 });
@@ -110,6 +111,7 @@ export default function EquipmentPage() {
       const cat = categories.find((c) => c.name === categoryFilter);
       if (cat) query = query.eq("category_id", cat.id);
     }
+    if (subcategoryFilter !== "all") query = query.eq("subcategory_id", subcategoryFilter);
     if (debouncedSearch) query = query.or(`name.ilike.%${debouncedSearch}%,serial_number.ilike.%${debouncedSearch}%`);
 
     const { data } = await query.order("name");
@@ -145,7 +147,7 @@ export default function EquipmentPage() {
     void (async () => {
       await fetchData();
     })();
-  }, [statusFilter, categoryFilter, debouncedSearch]);
+  }, [statusFilter, categoryFilter, subcategoryFilter, debouncedSearch]);
 
   useEffect(() => {
     const channel = supabase
@@ -363,6 +365,14 @@ export default function EquipmentPage() {
     { value: "damaged", label: "Damaged", count: stats.damaged },
   ];
 
+  const selectedCategoryId =
+    categoryFilter === "All"
+      ? null
+      : categories.find((c) => c.name === categoryFilter)?.id;
+  const visibleSubcategories = selectedCategoryId
+    ? subcategories.filter((s) => s.category_id === selectedCategoryId)
+    : subcategories;
+
   return (
     <>
       <div>
@@ -431,7 +441,10 @@ export default function EquipmentPage() {
           {CATEGORY_TABS.map((tab) => (
             <button
               key={tab}
-              onClick={() => setCategoryFilter(tab)}
+              onClick={() => {
+                setCategoryFilter(tab);
+                setSubcategoryFilter("all");
+              }}
               className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all ${
                 categoryFilter === tab ? "border-teal bg-teal text-white" : "border-[#dde4ec] bg-white text-silver hover:border-teal hover:text-teal"
               }`}
@@ -440,6 +453,34 @@ export default function EquipmentPage() {
             </button>
           ))}
         </div>
+
+        {visibleSubcategories.length > 0 && (
+          <div className="mb-4 flex flex-wrap gap-2">
+            <button
+              onClick={() => setSubcategoryFilter("all")}
+              className={`rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-all ${
+                subcategoryFilter === "all"
+                  ? "border-teal bg-teal-light text-teal"
+                  : "border-[#dde4ec] bg-white text-silver hover:border-teal hover:text-teal"
+              }`}
+            >
+              All Subcategories
+            </button>
+            {visibleSubcategories.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => setSubcategoryFilter(s.id)}
+                className={`rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-all ${
+                  subcategoryFilter === s.id
+                    ? "border-teal bg-teal-light text-teal"
+                    : "border-[#dde4ec] bg-white text-silver hover:border-teal hover:text-teal"
+                }`}
+              >
+                {s.name}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="relative mb-4">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-silver" />
