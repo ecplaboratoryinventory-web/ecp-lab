@@ -313,7 +313,7 @@ interface DamageReportPDF {
   periodStart: string | null;
   periodEnd: string | null;
   generatedBy: string;
-  stats: { total: number; pending: number; replaced: number };
+  stats: { total: number; pending: number; replaced: number; partial?: number };
   rows: {
     date: string;
     borrower: string;
@@ -387,6 +387,9 @@ export function generateDamageReport(data: DamageReportPDF) {
 
   y = summaryLine("Total Damage Reports:", data.stats.total, y);
   y = summaryLine("Pending Replacements:", data.stats.pending, y);
+  if (data.stats.partial !== undefined) {
+    y = summaryLine("Partial Replacements:", data.stats.partial, y);
+  }
   y = summaryLine("Replaced:", data.stats.replaced, y);
 
   y += 12;

@@ -30,15 +30,23 @@ interface Equipment {
   quantity: number;
   status: string;
   category_id: string;
+  subcategory_id: string | null;
   description: string;
   brand: string;
   image_url: string | null;
   department: string | null;
   categories?: { name: string };
+  subcategories?: { name: string };
 }
 
 interface Category {
   id: string;
+  name: string;
+}
+
+interface Subcategory {
+  id: string;
+  category_id: string;
   name: string;
 }
 
@@ -54,7 +62,7 @@ const STEP_LABELS = ["Select Equipment", "Set Details", "Review & Submit"];
 
 // Categories offered in the filter, per faculty department.
 const DEPT_CATEGORY_FILTER: Record<string, string[]> = {
-  Engineering: [],
+  Engineering: ["Electronics"],
   Science: ["Chemistry", "Physics"],
 };
 
@@ -65,10 +73,12 @@ export default function BorrowPage() {
   const [step, setStep] = useState(0);
   const [equipment, setEquipment] = useState<Equipment[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [subcategoryFilter, setSubcategoryFilter] = useState("all");
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
@@ -121,7 +131,7 @@ export default function BorrowPage() {
     setLoading(true);
     let query = supabase
       .from("equipment")
-      .select("*")
+      .select("*, categories(name), subcategories(name)")
       .order("name");
 
     if (userDept) {
@@ -130,6 +140,9 @@ export default function BorrowPage() {
     if (categoryFilter !== "all") {
       query = query.eq("category_id", categoryFilter);
     }
+    if (subcategoryFilter !== "all") {
+      query = query.eq("subcategory_id", subcategoryFilter);
+    }
     if (search) {
       query = query.ilike("name", `%${search}%`);
     }
@@ -137,7 +150,7 @@ export default function BorrowPage() {
     const { data } = await query;
     setEquipment((data as Equipment[]) || []);
     setLoading(false);
-  }, [categoryFilter, search, userDept]);
+  }, [categoryFilter, subcategoryFilter, search, userDept]);
 
   const fetchCategories = useCallback(async () => {
     const { data } = await supabase
@@ -145,6 +158,11 @@ export default function BorrowPage() {
       .select("*")
       .order("name");
     if (data) setCategories(data as Category[]);
+    const { data: subs } = await supabase
+      .from("subcategories")
+      .select("*")
+      .order("name");
+    if (subs) setSubcategories(subs as Subcategory[]);
   }, []);
 
   useEffect(() => {
@@ -354,6 +372,11 @@ export default function BorrowPage() {
     allowedDeptCategories === null
       ? categories
       : categories.filter((c) => allowedDeptCategories.includes(c.name));
+  const visibleCategoryIds = new Set(visibleCategories.map((c) => c.id));
+  const visibleSubcategories =
+    categoryFilter === "all"
+      ? subcategories.filter((s) => visibleCategoryIds.has(s.category_id))
+      : subcategories.filter((s) => s.category_id === categoryFilter);
 
   return (
     <Toaster>
@@ -405,7 +428,10 @@ export default function BorrowPage() {
           <div>
             <div className="mb-4 flex flex-wrap gap-2">
               <button
-                onClick={() => setCategoryFilter("all")}
+                onClick={() => {
+                  setCategoryFilter("all");
+                  setSubcategoryFilter("all");
+                }}
                 className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all ${
                   categoryFilter === "all"
                     ? "border-teal bg-teal text-white"
@@ -417,7 +443,10 @@ export default function BorrowPage() {
               {visibleCategories.map((c) => (
                 <button
                   key={c.id}
-                  onClick={() => setCategoryFilter(c.id)}
+                  onClick={() => {
+                    setCategoryFilter(c.id);
+                    setSubcategoryFilter("all");
+                  }}
                   className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all ${
                     categoryFilter === c.id
                       ? "border-teal bg-teal text-white"
@@ -428,6 +457,34 @@ export default function BorrowPage() {
                 </button>
               ))}
             </div>
+
+            {visibleSubcategories.length > 0 && (
+              <div className="mb-4 flex flex-wrap gap-2">
+                <button
+                  onClick={() => setSubcategoryFilter("all")}
+                  className={`rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-all ${
+                    subcategoryFilter === "all"
+                      ? "border-teal bg-teal-light text-teal"
+                      : "border-[#dde4ec] bg-white text-silver hover:border-teal hover:text-teal"
+                  }`}
+                >
+                  All Subcategories
+                </button>
+                {visibleSubcategories.map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => setSubcategoryFilter(s.id)}
+                    className={`rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-all ${
+                      subcategoryFilter === s.id
+                        ? "border-teal bg-teal-light text-teal"
+                        : "border-[#dde4ec] bg-white text-silver hover:border-teal hover:text-teal"
+                    }`}
+                  >
+                    {s.name}
+                  </button>
+                ))}
+              </div>
+            )}
 
             <div className="relative mb-4">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-silver" />
@@ -460,7 +517,7 @@ export default function BorrowPage() {
             ) : (
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                 {equipment.map((eq) => {
-                  const catName = eq.categories?.name || "";
+                  const catName = eq.subcategories?.name || "";
                   const iconMap: Record<string, string> = {
                     Microcontrollers: "🔌", "Single Board PCs": "🖥️", "Desktop PCs": "💻",
                     Components: "⚡", Glassware: "🧪", "Measuring Instruments": "📏",

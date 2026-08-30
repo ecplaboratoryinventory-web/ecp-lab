@@ -25,7 +25,8 @@ interface DamageReport {
   borrow_request_id: string | null;
   description: string;
   severity: "minor" | "major" | "critical";
-  status: "pending" | "resolved" | "dismissed";
+  status: "pending" | "resolved" | "partial" | "dismissed";
+  replaced_quantity: number;
   resolved_by: string | null;
   created_at: string;
   users?: { full_name: string } | null;
@@ -41,13 +42,14 @@ interface DamageReport {
   } | null;
 }
 
-type StatusFilter = "all" | "pending" | "replaced";
-type Status = "pending" | "resolved" | "dismissed";
+type StatusFilter = "all" | "pending" | "replaced" | "partial";
+type Status = "pending" | "resolved" | "partial" | "dismissed";
 
 const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: "all", label: "All" },
   { value: "pending", label: "Pending" },
   { value: "replaced", label: "Replaced" },
+  { value: "partial", label: "Partial" },
 ];
 
 const CATEGORY_OPTIONS: { value: string; label: string }[] = [
@@ -60,12 +62,14 @@ const CATEGORY_OPTIONS: { value: string; label: string }[] = [
 const STATUS_BADGE: Record<Status, { label: string; className: string }> = {
   pending: { label: "Pending", className: "bg-amber-100 text-amber-700" },
   resolved: { label: "Replaced", className: "bg-green-100 text-green-700" },
+  partial: { label: "Partial", className: "bg-orange-100 text-orange-700" },
   dismissed: { label: "Dismissed", className: "bg-gray-100 text-gray-500" },
 };
 
 const STATUS_DOT: Record<Status, string> = {
   pending: "bg-amber-500",
   resolved: "bg-green-500",
+  partial: "bg-orange-500",
   dismissed: "bg-gray-400",
 };
 
@@ -113,7 +117,7 @@ export default function FacultyDamageReportsPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [search, setSearch] = useState("");
-  const [stats, setStats] = useState({ total: 0, pending: 0, replaced: 0 });
+  const [stats, setStats] = useState({ total: 0, pending: 0, replaced: 0, partial: 0 });
 
   const [viewOpen, setViewOpen] = useState(false);
   const [selectedReport, setSelectedReport] = useState<DamageReport | null>(null);
@@ -151,6 +155,7 @@ export default function FacultyDamageReportsPage() {
       total: deptReports.length,
       pending: deptReports.filter((r) => r.status === "pending").length,
       replaced: deptReports.filter((r) => r.status === "resolved").length,
+      partial: deptReports.filter((r) => r.status === "partial").length,
     });
 
     setLoading(false);
@@ -174,6 +179,7 @@ export default function FacultyDamageReportsPage() {
   const filtered = reports.filter((r) => {
     if (statusFilter === "pending" && r.status !== "pending") return false;
     if (statusFilter === "replaced" && r.status !== "resolved") return false;
+    if (statusFilter === "partial" && r.status !== "partial") return false;
     if (showCategoryFilter && categoryFilter !== "all") {
       const cat = (r.equipment?.categories?.name || "").toLowerCase();
       if (cat !== categoryFilter) return false;
@@ -233,10 +239,11 @@ export default function FacultyDamageReportsPage() {
         </div>
 
         {/* Stats */}
-        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[
             { label: "Total Reports", value: stats.total, color: "#6b7280" },
             { label: "Pending", value: stats.pending, color: "#f59e0b" },
+            { label: "Partial", value: stats.partial, color: "#f97316" },
             { label: "Replaced", value: stats.replaced, color: "#10b981" },
           ].map((s) => (
             <div

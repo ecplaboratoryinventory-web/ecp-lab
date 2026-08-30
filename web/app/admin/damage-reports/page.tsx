@@ -3,12 +3,15 @@
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   AlertTriangle,
@@ -17,6 +20,7 @@ import {
   Eye,
   Search,
   FileText,
+  RefreshCw,
 } from "lucide-react";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { createNotification } from "@/lib/notifications";
@@ -29,7 +33,8 @@ interface DamageReport {
   borrow_request_id: string | null;
   description: string;
   severity: "minor" | "major" | "critical";
-  status: "pending" | "resolved" | "dismissed";
+  status: "pending" | "resolved" | "partial" | "dismissed";
+  replaced_quantity: number;
   resolved_by: string | null;
   created_at: string;
   users?: { full_name: string } | null;
@@ -45,14 +50,15 @@ interface DamageReport {
   } | null;
 }
 
-type StatusFilter = "all" | "pending" | "replaced";
-type Status = "pending" | "resolved" | "dismissed";
+type StatusFilter = "all" | "pending" | "replaced" | "partial";
+type Status = "pending" | "resolved" | "partial" | "dismissed";
 type CategoryFilter = "all" | "electronics" | "chemistry" | "physics";
 
 const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: "all", label: "All" },
   { value: "pending", label: "Pending" },
   { value: "replaced", label: "Replaced" },
+  { value: "partial", label: "Partial" },
 ];
 
 const CATEGORY_OPTIONS: { value: CategoryFilter; label: string }[] = [
@@ -65,12 +71,14 @@ const CATEGORY_OPTIONS: { value: CategoryFilter; label: string }[] = [
 const STATUS_BADGE: Record<Status, { label: string; className: string }> = {
   pending: { label: "Pending", className: "bg-amber-100 text-amber-700" },
   resolved: { label: "Replaced", className: "bg-green-100 text-green-700" },
+  partial: { label: "Partial", className: "bg-orange-100 text-orange-700" },
   dismissed: { label: "Dismissed", className: "bg-gray-100 text-gray-500" },
 };
 
 const STATUS_DOT: Record<Status, string> = {
   pending: "bg-amber-500",
   resolved: "bg-green-500",
+  partial: "bg-orange-500",
   dismissed: "bg-gray-400",
 };
 
@@ -117,10 +125,14 @@ export default function DamageReportsPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
   const [search, setSearch] = useState("");
-  const [stats, setStats] = useState({ total: 0, pending: 0, replaced: 0 });
+  const [stats, setStats] = useState({ total: 0, pending: 0, replaced: 0, partial: 0 });
 
   const [viewOpen, setViewOpen] = useState(false);
   const [selectedReport, setSelectedReport] = useState<DamageReport | null>(null);
+
+  const [replaceOpen, setReplaceOpen] = useState(false);
+  const [replaceReport, setReplaceReport] = useState<DamageReport | null>(null);
+  const [replaceQty, setReplaceQty] = useState(0);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<(() => void) | null>(null);
@@ -159,6 +171,7 @@ export default function DamageReportsPage() {
       total: list.length,
       pending: list.filter((r) => r.status === "pending").length,
       replaced: list.filter((r) => r.status === "resolved").length,
+      partial: list.filter((r) => r.status === "partial").length,
     });
 
     setLoading(false);
@@ -174,6 +187,8 @@ export default function DamageReportsPage() {
   const getQty = (r: DamageReport) =>
     r.borrow_request?.borrow_items?.find((bi) => bi.equipment_id === r.equipment_id)
       ?.quantity || 1;
+  const getReplacedQty = (r: DamageReport) => r.replaced_quantity || 0;
+  const getRemaining = (r: DamageReport) => Math.max(0, getQty(r) - getReplacedQty(r));
   const getAssessedBy = (r: DamageReport) => r.resolved?.full_name || "—";
 
   const handleDownloadPDF = () => {
@@ -209,6 +224,7 @@ export default function DamageReportsPage() {
       stats: {
         total: categoryReports.length,
         pending: categoryReports.filter((r) => r.status === "pending").length,
+        partial: categoryReports.filter((r) => r.status === "partial").length,
         replaced: categoryReports.filter((r) => r.status === "resolved").length,
       },
       rows: categoryReports.map((r) => ({
@@ -220,9 +236,11 @@ export default function DamageReportsPage() {
         status:
           r.status === "resolved"
             ? "Replaced"
-            : r.status === "dismissed"
-              ? "Dismissed"
-              : "Pending",
+            : r.status === "partial"
+              ? "Partial"
+              : r.status === "dismissed"
+                ? "Dismissed"
+                : "Pending",
       })),
     });
   };
@@ -230,6 +248,7 @@ export default function DamageReportsPage() {
   const filtered = reports.filter((r) => {
     if (statusFilter === "pending" && r.status !== "pending") return false;
     if (statusFilter === "replaced" && r.status !== "resolved") return false;
+    if (statusFilter === "partial" && r.status !== "partial") return false;
     if (categoryFilter !== "all") {
       const cat = (r.equipment?.categories?.name || "").toLowerCase();
       if (cat !== categoryFilter) return false;
@@ -248,32 +267,51 @@ export default function DamageReportsPage() {
     setViewOpen(true);
   };
 
-  const handleReplace = async () => {
-    if (!selectedReport) return;
+  const openReplace = (report: DamageReport) => {
+    setReplaceReport(report);
+    setReplaceQty(getRemaining(report));
+    setReplaceOpen(true);
+  };
+
+  const handleConfirmReplace = async () => {
+    if (!replaceReport) return;
+    const total = getQty(replaceReport);
+    const already = getReplacedQty(replaceReport);
+    const qty = Math.max(1, Math.min(replaceQty, total - already));
+    const newReplaced = already + qty;
+    const newStatus: Status = newReplaced >= total ? "resolved" : "partial";
+
     const { data: authData } = await supabase.auth.getUser();
     const userId = authData.user?.id;
 
     await supabase
       .from("damage_reports")
       .update({
-        status: "resolved",
-        resolution_notes: "Replaced damaged items",
+        status: newStatus,
+        replaced_quantity: newReplaced,
         resolved_by: userId,
+        resolution_notes:
+          newStatus === "resolved"
+            ? "Replaced damaged items"
+            : `Partially replaced (${newReplaced}/${total})`,
       })
-      .eq("id", selectedReport.id);
+      .eq("id", replaceReport.id);
 
-    const eqName = selectedReport.equipment?.name || "equipment";
+    const eqName = replaceReport.equipment?.name || "equipment";
     await createNotification(
-      selectedReport.user_id,
-      "Damage Report Replaced",
-      `Your damage report for ${eqName} has been replaced.`,
+      replaceReport.user_id,
+      newStatus === "resolved" ? "Damage Report Replaced" : "Damage Report Partially Replaced",
+      newStatus === "resolved"
+        ? `Your damage report for ${eqName} has been replaced.`
+        : `${newReplaced} of ${total} damaged ${eqName} have been replaced.`,
       "damage_report",
       "damage_report",
-      selectedReport.id
+      replaceReport.id
     );
 
-    setViewOpen(false);
-    setSelectedReport(null);
+    setReplaceOpen(false);
+    setReplaceReport(null);
+    setReplaceQty(0);
     fetchData();
   };
 
@@ -316,10 +354,11 @@ export default function DamageReportsPage() {
         </div>
 
         {/* Stats */}
-        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[
             { label: "Total Reports", value: stats.total, color: "#6b7280" },
             { label: "Pending", value: stats.pending, color: "#f59e0b" },
+            { label: "Partial", value: stats.partial, color: "#f97316" },
             { label: "Replaced", value: stats.replaced, color: "#10b981" },
           ].map((s) => (
             <div
@@ -436,12 +475,22 @@ export default function DamageReportsPage() {
                           </span>
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <button
-                            onClick={() => openView(r)}
-                            className="inline-flex h-[26px] items-center gap-1 rounded-md border border-[#dde4ec] px-2.5 text-[0.75rem] font-semibold text-navy hover:border-teal hover:text-teal"
-                          >
-                            <Eye className="h-3 w-3" /> View
-                          </button>
+                          <div className="flex justify-end gap-1.5">
+                            <button
+                              onClick={() => openView(r)}
+                              className="inline-flex h-[26px] items-center gap-1 rounded-md border border-[#dde4ec] px-2.5 text-[0.75rem] font-semibold text-navy hover:border-teal hover:text-teal"
+                            >
+                              <Eye className="h-3 w-3" /> View
+                            </button>
+                            {r.status === "pending" || r.status === "partial" ? (
+                              <button
+                                onClick={() => openReplace(r)}
+                                className="inline-flex h-[26px] items-center gap-1 rounded-md border border-[#dde4ec] px-2.5 text-[0.75rem] font-semibold text-green-600 hover:border-green-500 hover:bg-green-50"
+                              >
+                                <RefreshCw className="h-3 w-3" /> Replace
+                              </button>
+                            ) : null}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -548,12 +597,138 @@ export default function DamageReportsPage() {
                     <Button variant="outline" onClick={() => setViewOpen(false)} className="border-[#dde4ec]">
                       Close
                     </Button>
-                    {selectedReport.status === "pending" && (
-                      <Button onClick={handleReplace} className="gap-1.5 bg-green-500 hover:bg-green-600">
-                        <CheckCircle className="h-3.5 w-3.5" /> Replace Damaged Items
+                    {selectedReport.status === "pending" ||
+                    selectedReport.status === "partial" ? (
+                      <Button
+                        onClick={() => {
+                          setViewOpen(false);
+                          openReplace(selectedReport);
+                        }}
+                        className="gap-1.5 bg-green-500 hover:bg-green-600"
+                      >
+                        <CheckCircle className="h-3.5 w-3.5" />
+                        {selectedReport.status === "partial"
+                          ? "Replace Remaining Items"
+                          : "Replace Damaged Items"}
                       </Button>
-                    )}
+                    ) : null}
                   </div>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Replace Dialog */}
+        <Dialog open={replaceOpen} onOpenChange={setReplaceOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-bold text-navy">
+                {replaceReport?.status === "partial"
+                  ? "Replace Remaining Items"
+                  : "Replace Damaged Items"}
+              </DialogTitle>
+              <DialogDescription className="text-silver">
+                Confirm the quantity of damaged items to replace.
+              </DialogDescription>
+            </DialogHeader>
+
+            {replaceReport && (
+              <div className="space-y-5">
+                <div>
+                  <h4 className="mb-2 text-xs font-bold uppercase tracking-wider text-navy">
+                    Borrower Information
+                  </h4>
+                  <div className="overflow-hidden rounded-md border border-[#dde4ec]">
+                    <table className="w-full text-sm">
+                      <tbody>
+                        {[
+                          { k: "Borrower", v: replaceReport.users?.full_name || "Unknown" },
+                          { k: "Category", v: getCategory(replaceReport) },
+                          { k: "Date Reported", v: formatDate(replaceReport.created_at) },
+                        ].map((row) => (
+                          <tr key={row.k} className="border-b border-[#f0f0f0] last:border-0">
+                            <td className="w-40 bg-[#f8f9fa] px-3 py-2 font-semibold text-navy">
+                              {row.k}
+                            </td>
+                            <td className="px-3 py-2 text-navy">{row.v}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="mb-2 text-xs font-bold uppercase tracking-wider text-navy">
+                    Damaged Equipment
+                  </h4>
+                  <div className="overflow-hidden rounded-md border border-[#dde4ec]">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-[#eef1f4] text-xs font-semibold uppercase tracking-wider text-navy">
+                          <th className="px-3 py-2">Equipment</th>
+                          <th className="px-3 py-2 text-center">Damaged Qty.</th>
+                          <th className="px-3 py-2 text-center">Replaced</th>
+                          <th className="px-3 py-2 text-center">Remaining</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="border-b border-[#f0f0f0] last:border-0">
+                          <td className="px-3 py-2 font-medium text-navy">
+                            {replaceReport.equipment?.name || "-"}
+                          </td>
+                          <td className="px-3 py-2 text-center text-navy">{getQty(replaceReport)}</td>
+                          <td className="px-3 py-2 text-center text-navy">
+                            {getReplacedQty(replaceReport)}
+                          </td>
+                          <td className="px-3 py-2 text-center font-semibold text-navy">
+                            {getRemaining(replaceReport)}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="text-xs font-medium text-slate">
+                    Replace Qty <span className="text-red-400">*</span>
+                  </Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={getRemaining(replaceReport)}
+                    value={replaceQty}
+                    onChange={(e) =>
+                      setReplaceQty(Math.max(0, parseInt(e.target.value) || 0))
+                    }
+                    className="mt-1 border-[#dde4ec]"
+                  />
+                  <p className="mt-1 text-xs text-silver">
+                    {getRemaining(replaceReport)} item(s) remaining
+                  </p>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-1">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setReplaceOpen(false);
+                      setReplaceReport(null);
+                      setReplaceQty(0);
+                    }}
+                    className="border-[#dde4ec]"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleConfirmReplace}
+                    disabled={replaceQty < 1 || replaceQty > getRemaining(replaceReport)}
+                    className="gap-1.5 bg-green-500 hover:bg-green-600"
+                  >
+                    <CheckCircle className="h-4 w-4" /> Confirm Replacement
+                  </Button>
                 </div>
               </div>
             )}
