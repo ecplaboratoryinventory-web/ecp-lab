@@ -163,11 +163,10 @@ export default function BorrowRequestsPage() {
 
   const isPastDue = (req: BorrowRequest) => {
     if (!isActiveBorrow(req) || !req.return_date) return false;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const due = new Date(req.return_date);
-    due.setHours(0, 0, 0, 0);
-    return due.getTime() <= today.getTime();
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const returnDate = String(req.return_date).slice(0, 10);
+    return returnDate <= todayStr;
   };
 
   const canReturnOrDamage = (req: BorrowRequest) =>
