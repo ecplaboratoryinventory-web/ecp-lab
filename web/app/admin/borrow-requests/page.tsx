@@ -40,6 +40,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { QuantityStepper } from "@/components/ui/quantity-stepper";
 
 interface User {
   id: string;
@@ -134,6 +135,18 @@ const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: "rejected", label: "Rejected" },
 ];
 
+function isActiveBorrow(req: BorrowRequest) {
+  return req.status === "borrowed" || req.status === "approved";
+}
+
+function isPastDue(req: BorrowRequest) {
+  if (!isActiveBorrow(req) || !req.return_date) return false;
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const returnDate = String(req.return_date).slice(0, 10);
+  return returnDate <= todayStr;
+}
+
 export default function BorrowRequestsPage() {
   const [activeTab, setActiveTab] = useState<RequestType>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -169,17 +182,6 @@ export default function BorrowRequestsPage() {
     if (items.length === 0) return "Unknown equipment";
     if (items.length === 1) return items[0].equipment?.name || "Unknown equipment";
     return `${items.length} items`;
-  };
-
-  const isActiveBorrow = (req: BorrowRequest) =>
-    req.status === "borrowed" || req.status === "approved";
-
-  const isPastDue = (req: BorrowRequest) => {
-    if (!isActiveBorrow(req) || !req.return_date) return false;
-    const now = new Date();
-    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-    const returnDate = String(req.return_date).slice(0, 10);
-    return returnDate <= todayStr;
   };
 
   const canReturnOrDamage = (req: BorrowRequest) =>
@@ -264,7 +266,7 @@ export default function BorrowRequestsPage() {
     });
 
     setLoading(false);
-  }, [activeTab, statusFilter, search]);
+  }, [supabase, activeTab, statusFilter, search]);
 
   useEffect(() => {
     void (async () => {
@@ -278,7 +280,7 @@ export default function BorrowRequestsPage() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'borrow_requests' }, () => fetchData())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, []);
+  }, [supabase, fetchData]);
 
   const handleApprove = (id: string) => {
     withConfirm(async () => {
@@ -1034,19 +1036,14 @@ export default function BorrowRequestsPage() {
                       <Label className="text-xs font-medium text-slate">
                         Quantity Returning
                       </Label>
-                      <Input
-                        type="number"
+                      <QuantityStepper
+                        value={item.returningQuantity}
+                        onChange={(value) =>
+                          updateReturnItem(index, "returningQuantity", value)
+                        }
                         min={0}
                         max={item.quantityBorrowed - item.alreadyReturned}
-                        value={item.returningQuantity}
-                        onChange={(e) =>
-                          updateReturnItem(
-                            index,
-                            "returningQuantity",
-                            Math.max(0, parseInt(e.target.value) || 0)
-                          )
-                        }
-                        className="mt-1 border-[#dde4ec]"
+                        className="mt-2"
                       />
                     </div>
 

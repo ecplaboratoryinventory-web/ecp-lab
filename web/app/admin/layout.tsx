@@ -60,7 +60,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       setChecking(false);
     };
     fetch();
-  }, []);
+  }, [supabase, router]);
 
   if (checking) {
     return (

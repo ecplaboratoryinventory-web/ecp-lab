@@ -3,20 +3,28 @@
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   AlertTriangle,
   Eye,
   Search,
   ChevronLeft,
+  CheckCircle,
+  RefreshCw,
+  Minus,
+  Plus,
 } from "lucide-react";
 import Link from "next/link";
+import { createNotification } from "@/lib/notifications";
 
 interface DamageReport {
   id: string;
@@ -30,7 +38,7 @@ interface DamageReport {
   replaced_quantity: number;
   resolved_by: string | null;
   created_at: string;
-  users?: { full_name: string } | null;
+  users?: { full_name: string; role?: string } | null;
   equipment?: {
     name: string;
     department: string | null;
@@ -130,6 +138,10 @@ export default function FacultyDamageReportsPage() {
   const [viewOpen, setViewOpen] = useState(false);
   const [selectedReport, setSelectedReport] = useState<DamageReport | null>(null);
 
+  const [replaceOpen, setReplaceOpen] = useState(false);
+  const [replaceReport, setReplaceReport] = useState<DamageReport | null>(null);
+  const [replaceQty, setReplaceQty] = useState(0);
+
   const fetchData = useCallback(async () => {
     setLoading(true);
 
@@ -148,7 +160,7 @@ export default function FacultyDamageReportsPage() {
       .from("damage_reports")
       .select(
         `*,
-        users:user_id(full_name),
+        users:user_id(full_name, role),
         equipment:equipment_id(name, department, category_id, categories:category_id(name)),
         resolved:resolved_by(full_name),
         borrow_request:borrow_request_id(borrow_items(equipment_id, quantity))`
@@ -168,7 +180,7 @@ export default function FacultyDamageReportsPage() {
 
     setLoading(false);
     setChecking(false);
-  }, []);
+  }, [supabase]);
 
   useEffect(() => {
     void (async () => {
@@ -180,6 +192,8 @@ export default function FacultyDamageReportsPage() {
   const getQty = (r: DamageReport) =>
     r.borrow_request?.borrow_items?.find((bi) => bi.equipment_id === r.equipment_id)
       ?.quantity || 1;
+  const getReplacedQty = (r: DamageReport) => r.replaced_quantity || 0;
+  const getRemaining = (r: DamageReport) => Math.max(0, getQty(r) - getReplacedQty(r));
   const getAssessedBy = (r: DamageReport) => r.resolved?.full_name || "—";
 
   const showCategoryFilter = userDept === "Science";
@@ -204,6 +218,55 @@ export default function FacultyDamageReportsPage() {
   const openView = (report: DamageReport) => {
     setSelectedReport(report);
     setViewOpen(true);
+  };
+
+  const openReplace = (report: DamageReport) => {
+    setReplaceReport(report);
+    setReplaceQty(getRemaining(report));
+    setReplaceOpen(true);
+  };
+
+  const handleConfirmReplace = async () => {
+    if (!replaceReport) return;
+    const total = getQty(replaceReport);
+    const already = getReplacedQty(replaceReport);
+    const qty = Math.max(1, Math.min(replaceQty, total - already));
+    const newReplaced = already + qty;
+    const newStatus: Status = newReplaced >= total ? "resolved" : "partial";
+
+    const { data: authData } = await supabase.auth.getUser();
+    const userId = authData.user?.id;
+
+    await supabase
+      .from("damage_reports")
+      .update({
+        status: newStatus,
+        replaced_quantity: newReplaced,
+        replaced_at: new Date().toISOString(),
+        resolved_by: userId,
+        resolution_notes:
+          newStatus === "resolved"
+            ? "Replaced damaged items"
+            : `Partially replaced (${newReplaced}/${total})`,
+      })
+      .eq("id", replaceReport.id);
+
+    const eqName = replaceReport.equipment?.name || "equipment";
+    await createNotification(
+      replaceReport.user_id,
+      newStatus === "resolved" ? "Damage Report Replaced" : "Damage Report Partially Replaced",
+      newStatus === "resolved"
+        ? `Your damage report for ${eqName} has been replaced.`
+        : `${newReplaced} of ${total} damaged ${eqName} have been replaced.`,
+      "damage_report",
+      "damage_report",
+      replaceReport.id
+    );
+
+    setReplaceOpen(false);
+    setReplaceReport(null);
+    setReplaceQty(0);
+    fetchData();
   };
 
   const formatDate = (date: string) => {
@@ -373,6 +436,14 @@ export default function FacultyDamageReportsPage() {
                             >
                               <Eye className="h-3 w-3" /> View
                             </button>
+                            {(r.status === "pending" || r.status === "partial") && (
+                              <button
+                                onClick={() => openReplace(r)}
+                                className="flex items-center gap-1 text-[0.78rem] font-semibold text-green-600 underline hover:text-green-700"
+                              >
+                                <RefreshCw className="h-3 w-3" /> Replace
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -470,13 +541,170 @@ export default function FacultyDamageReportsPage() {
                   </div>
                 </div>
 
-                <div className="flex justify-end pt-2">
+                <div className="flex justify-end gap-2 pt-2">
+                  {selectedReport.status === "pending" ||
+                  selectedReport.status === "partial" ? (
+                    <Button
+                      onClick={() => {
+                        setViewOpen(false);
+                        openReplace(selectedReport);
+                      }}
+                      className="gap-1.5 bg-green-500 hover:bg-green-600"
+                    >
+                      <CheckCircle className="h-3.5 w-3.5" />
+                      {selectedReport.status === "partial"
+                        ? "Replace Remaining Items"
+                        : "Replace Damaged Items"}
+                    </Button>
+                  ) : null}
                   <Button variant="outline" onClick={() => setViewOpen(false)} className="border-[#dde4ec]">
                     Close
                   </Button>
                 </div>
               </div>
             )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Replace Dialog */}
+        <Dialog open={replaceOpen} onOpenChange={setReplaceOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-bold text-navy">
+                {replaceReport?.status === "partial"
+                  ? "Replace Remaining Items"
+                  : "Replace Damaged Items"}
+              </DialogTitle>
+              <DialogDescription className="text-silver">
+                Confirm the quantity of damaged items to replace.
+              </DialogDescription>
+            </DialogHeader>
+
+            {replaceReport &&
+              (() => {
+                const isPartial = replaceReport.status === "partial";
+                const remaining = getRemaining(replaceReport);
+                const role = replaceReport.users?.role
+                  ? replaceReport.users.role.charAt(0).toUpperCase() +
+                    replaceReport.users.role.slice(1)
+                  : "—";
+                return (
+                  <div className="space-y-5">
+                    <div>
+                      <h4 className="mb-2 text-xs font-bold uppercase tracking-wider text-navy">
+                        Borrower Information
+                      </h4>
+                      <div className="overflow-hidden rounded-md border border-[#dde4ec]">
+                        <table className="w-full table-fixed text-sm">
+                          <tbody>
+                            {[
+                              { k: "Borrower", v: replaceReport.users?.full_name || "Unknown" },
+                              { k: "Role", v: role },
+                              { k: "Category", v: getCategory(replaceReport) },
+                              { k: "Date Reported", v: formatDate(replaceReport.created_at) },
+                            ].map((row) => (
+                              <tr key={row.k} className="border-b border-[#f0f0f0] last:border-0">
+                                <td className="w-36 bg-[#f8f9fa] px-3 py-2 font-semibold text-navy">
+                                  {row.k}
+                                </td>
+                                <td className="px-3 py-2 text-navy">{row.v}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h4 className="mb-2 text-xs font-bold uppercase tracking-wider text-navy">
+                        Damaged Equipment
+                      </h4>
+                      <div className="overflow-hidden rounded-md border border-[#dde4ec]">
+                        <table className="w-full table-fixed text-sm">
+                          <thead>
+                            <tr className="bg-[#eef1f4] text-xs font-semibold uppercase tracking-wider text-navy">
+                              <th className="px-3 py-2 text-left">Equipment</th>
+                              <th className="px-3 py-2 text-center">
+                                {isPartial ? "Remaining Qty." : "Damaged Qty."}
+                              </th>
+                              <th className="px-3 py-2 text-center">Replace Qty</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr className="border-b border-[#f0f0f0] last:border-0">
+                              <td className="px-3 py-2 font-medium text-navy">
+                                {replaceReport.equipment?.name || "-"}
+                              </td>
+                              <td className="px-3 py-2 text-center text-navy">
+                                {isPartial ? remaining : getQty(replaceReport)}
+                              </td>
+                              <td className="px-3 py-2">
+                                <div className="flex items-center justify-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => setReplaceQty((q) => Math.max(1, q - 1))}
+                                    disabled={replaceQty <= 1}
+                                    className="flex h-7 w-7 items-center justify-center rounded-md border border-[#dde4ec] text-navy hover:border-teal hover:text-teal disabled:opacity-40"
+                                  >
+                                    <Minus className="h-3 w-3" />
+                                  </button>
+                                  <span className="w-8 text-center text-sm font-semibold text-navy">
+                                    {replaceQty}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setReplaceQty((q) => Math.min(remaining, q + 1))}
+                                    disabled={replaceQty >= remaining}
+                                    className="flex h-7 w-7 items-center justify-center rounded-md border border-[#dde4ec] text-navy hover:border-teal hover:text-teal disabled:opacity-40"
+                                  >
+                                    <Plus className="h-3 w-3" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                      <p className="mt-1.5 text-xs text-silver">
+                        {remaining} item(s) remaining
+                      </p>
+                    </div>
+
+                    <div>
+                      <Label className="text-xs font-medium text-slate">
+                        Replacement Date
+                      </Label>
+                      <Input
+                        type="date"
+                        value={new Date().toISOString().slice(0, 10)}
+                        readOnly
+                        className="mt-1 border-[#dde4ec] bg-[#f8f9fa] text-silver"
+                      />
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-1">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setReplaceOpen(false);
+                          setReplaceReport(null);
+                          setReplaceQty(0);
+                        }}
+                        className="border-[#dde4ec]"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={handleConfirmReplace}
+                        disabled={replaceQty < 1 || replaceQty > remaining}
+                        className="gap-1.5 bg-green-500 hover:bg-green-600"
+                      >
+                        <CheckCircle className="h-4 w-4" /> Confirm Replacement
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })()}
           </DialogContent>
         </Dialog>
       </div>

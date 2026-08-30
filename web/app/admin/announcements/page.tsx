@@ -120,7 +120,7 @@ export default function AnnouncementsPage() {
     const { data } = await query;
     setAnnouncements((data as Announcement[]) || []);
     setLoading(false);
-  }, [filter]);
+  }, [supabase, filter]);
 
   useEffect(() => {
     void (async () => {

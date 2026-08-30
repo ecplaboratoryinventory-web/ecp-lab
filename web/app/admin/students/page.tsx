@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "@/components/shared/toast";
 import { logActivity } from "@/lib/logger";
@@ -106,7 +106,7 @@ export default function StudentsPage() {
     password: "",
   });
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
 
     const { count: total } = await supabase
@@ -159,13 +159,13 @@ export default function StudentsPage() {
     const { data } = await query;
     if (data) setStudents(data as Student[]);
     setLoading(false);
-  };
+  }, [supabase, search, statusFilter]);
 
   useEffect(() => {
     void (async () => {
       await fetchData();
     })();
-  }, [search, statusFilter]);
+  }, [fetchData]);
 
   const openCreate = () => {
     setEditingId(null);

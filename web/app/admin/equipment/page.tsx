@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "@/components/shared/toast";
 import { logActivity } from "@/lib/logger";
@@ -23,6 +24,7 @@ import {
 import { Plus, Search, Download, Upload, Pencil, Trash2, Microscope, PackageCheck, Clock, AlertTriangle, ImagePlus, Loader2 } from "lucide-react";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { uploadImage } from "@/lib/cloudinary";
+import { QuantityStepper } from "@/components/ui/quantity-stepper";
 
 interface Equipment {
   id: string;
@@ -103,7 +105,7 @@ export default function EquipmentPage() {
     image_url: "",
   });
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     let query = supabase.from("equipment").select("*, categories(name), subcategories(name)");
 
     if (statusFilter !== "all") query = query.eq("status", statusFilter);
@@ -123,20 +125,20 @@ export default function EquipmentPage() {
     const { count: damaged } = await supabase.from("equipment").select("*", { count: "exact", head: true }).eq("status", "damaged");
     setStats({ total: total || 0, available: available || 0, borrowed: borrowed || 0, damaged: damaged || 0 });
     setLoading(false);
-  };
+  }, [supabase, statusFilter, categoryFilter, subcategoryFilter, debouncedSearch, categories]);
 
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     const { data } = await supabase.from("categories").select("*").order("name");
     if (data) setCategories(data.filter((c: Category) => CATEGORY_ORDER.includes(c.name as typeof CATEGORY_ORDER[number])));
     const { data: subs } = await supabase.from("subcategories").select("id, category_id, name").order("name");
     if (subs) setSubcategories(subs);
-  };
+  }, [supabase]);
 
   useEffect(() => {
     void (async () => {
       await fetchCategories();
     })();
-  }, []);
+  }, [fetchCategories]);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 300);
@@ -147,7 +149,7 @@ export default function EquipmentPage() {
     void (async () => {
       await fetchData();
     })();
-  }, [statusFilter, categoryFilter, subcategoryFilter, debouncedSearch]);
+  }, [fetchData]);
 
   useEffect(() => {
     const channel = supabase
@@ -155,7 +157,7 @@ export default function EquipmentPage() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'equipment' }, () => fetchData())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, []);
+  }, [supabase, fetchData]);
 
   const openCreate = () => {
     setEditingId(null);
@@ -524,7 +526,7 @@ export default function EquipmentPage() {
                     <tr key={eq.id} className="border-b border-[#f0f0f0] hover:bg-[#f8f9fa]">
                       <td className="px-4 py-3">
                         {eq.image_url ? (
-                          <img src={eq.image_url} alt={eq.name} className="h-10 w-10 rounded-lg object-cover" />
+                          <Image src={eq.image_url} alt={eq.name} width={40} height={40} unoptimized className="h-10 w-10 rounded-lg object-cover" />
                         ) : (
                           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#f0f4f8]">
                             <Microscope className="h-4 w-4 text-silver" />
@@ -601,7 +603,12 @@ export default function EquipmentPage() {
               </div>
               <div>
                 <label className="text-xs font-medium text-slate">Quantity / Stock <span className="text-red-500">*</span></label>
-                <Input type="number" min={1} value={form.quantity} onChange={(e) => setForm({ ...form, quantity: Math.max(1, Number(e.target.value) || 1) })} className="mt-1 border-[#dde4ec]" />
+                <QuantityStepper
+                  value={form.quantity}
+                  onChange={(value) => setForm({ ...form, quantity: value })}
+                  min={1}
+                  className="mt-2"
+                />
               </div>
               <div>
                 <label className="text-xs font-medium text-slate">Status</label>
@@ -623,7 +630,7 @@ export default function EquipmentPage() {
                 <div className="mt-1 flex items-center gap-3">
                   <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#dde4ec] bg-[#f8f9fa]">
                     {form.image_url ? (
-                      <img src={form.image_url} alt="Equipment" className="h-full w-full object-cover" />
+                      <Image src={form.image_url} alt="Equipment" width={80} height={80} unoptimized className="h-full w-full object-cover" />
                     ) : (
                       <ImagePlus className="h-6 w-6 text-silver/50" />
                     )}

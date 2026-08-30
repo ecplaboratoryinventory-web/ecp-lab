@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "@/components/shared/toast";
 import { logActivity } from "@/lib/logger";
@@ -90,9 +90,9 @@ export default function ClassSchedulesPage() {
       .then(({ data }) => {
         if (data) setFaculty(data as Faculty[]);
       });
-  }, []);
+  }, [supabase]);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
 
     const { count: total } = await supabase
@@ -153,13 +153,13 @@ export default function ClassSchedulesPage() {
       setSchedules(mapped);
     }
     setLoading(false);
-  };
+  }, [supabase, dayFilter, search]);
 
   useEffect(() => {
     void (async () => {
       await fetchData();
     })();
-  }, [search, dayFilter]);
+  }, [fetchData]);
 
   const openCreate = () => {
     setEditingId(null);

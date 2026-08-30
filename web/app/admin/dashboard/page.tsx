@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Microscope, PackageCheck, Clock, AlertTriangle, HandHelping, Tags, GraduationCap, FileText } from "lucide-react";
 import Link from "next/link";
@@ -33,7 +33,7 @@ export default function AdminDashboardPage() {
 
   const COLORS = ["#0ea5a0", "#3b82f6", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6", "#ec4899", "#14b8a6"];
 
-  const fetchAll = async () => {
+  const fetchAll = useCallback(async () => {
     const { count: total } = await supabase.from("equipment").select("*", { count: "exact", head: true });
     const { count: available } = await supabase.from("equipment").select("*", { count: "exact", head: true }).eq("status", "available");
     const { count: borrowed } = await supabase.from("equipment").select("*", { count: "exact", head: true }).eq("status", "borrowed");
@@ -62,13 +62,13 @@ export default function AdminDashboardPage() {
     setRecentActivity(logs || []);
 
     setLoading(false);
-  };
+  }, [supabase]);
 
   useEffect(() => {
     void (async () => {
       await fetchAll();
     })();
-  }, []);
+  }, [fetchAll]);
 
   useEffect(() => {
     const channel = supabase
@@ -76,7 +76,7 @@ export default function AdminDashboardPage() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'equipment' }, () => fetchAll())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, []);
+  }, [supabase, fetchAll]);
 
   useEffect(() => {
     const channel = supabase
@@ -84,7 +84,7 @@ export default function AdminDashboardPage() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'borrow_requests' }, () => fetchAll())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, []);
+  }, [supabase, fetchAll]);
 
   return (
     <div style={{ fontFamily: "'DM Sans', sans-serif" }}>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -72,7 +72,7 @@ export default function CategoriesPage() {
   const [deleteError, setDeleteError] = useState("");
   const [form, setForm] = useState({ parentId: "", name: "", description: "" });
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     const [catsRes, subsRes] = await Promise.all([
       supabase.from("categories").select("id, name, equipment(count)").order("name"),
@@ -118,16 +118,15 @@ export default function CategoriesPage() {
     }
 
     setLoading(false);
-  };
+  }, [supabase]);
 
   useEffect(() => {
     void (async () => {
       await fetchData();
     })();
-  }, []);
+  }, [fetchData]);
 
   const totalSubcategories = subcategories.length;
-  const withEquipment = subcategories.filter((s) => s.equipment_count > 0).length;
   const emptySubcategories = subcategories.filter((s) => s.equipment_count === 0).length;
 
   const openCreate = () => {

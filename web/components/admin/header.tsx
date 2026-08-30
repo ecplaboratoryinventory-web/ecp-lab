@@ -72,7 +72,9 @@ export function AdminHeader() {
   }, []);
 
   useEffect(() => {
-    fetchNotifications();
+    (async () => {
+      await fetchNotifications();
+    })();
   }, [fetchNotifications]);
 
   useEffect(() => {

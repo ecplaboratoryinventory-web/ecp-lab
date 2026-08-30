@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 const GREEN = "#2ea653";
 const NAVY = "#1b2b40";
@@ -128,7 +129,7 @@ export default function LandingPage() {
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-[14px]">
           <div className="flex items-center gap-[12px]">
             <div className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded bg-white/10">
-              <img src="/images/logo-main.png" alt="ECP Logo" className="h-9 w-9 object-contain" />
+              <Image src="/images/logo-main.png" alt="ECP Logo" width={36} height={36} className="h-9 w-9 object-contain" />
             </div>
             <span className="text-[1.5rem] font-black leading-none text-white">ECP</span>
             <div className="h-8 w-px bg-white/20" />
@@ -326,7 +327,7 @@ export default function LandingPage() {
       <footer className="py-8" style={{ background: NAVY }}>
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 text-center md:flex-row md:text-left">
           <div className="flex items-center gap-[12px]">
-            <img src="/images/logo-main.png" alt="ECP Logo" className="h-9 w-9 object-contain" />
+            <Image src="/images/logo-main.png" alt="ECP Logo" width={36} height={36} className="h-9 w-9 object-contain" />
             <div style={{ lineHeight: 1.25 }}>
               <div className="text-[0.82rem] font-bold text-white">
                 ECP: A Web-App Engineering Laboratory Management System

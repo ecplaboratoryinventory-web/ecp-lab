@@ -66,7 +66,7 @@ export default function FacultyEquipmentPage() {
       }
     };
     fetchDepartment();
-  }, []);
+  }, [supabase]);
 
   const fetchEquipment = useCallback(async () => {
     setLoading(true);
@@ -91,7 +91,7 @@ export default function FacultyEquipmentPage() {
     const { data } = await query;
     setEquipment((data as Equipment[]) || []);
     setLoading(false);
-  }, [categoryFilter, search, userDept]);
+  }, [supabase, categoryFilter, search, userDept]);
 
   const fetchCategories = useCallback(async () => {
     const { data } = await supabase
@@ -99,7 +99,7 @@ export default function FacultyEquipmentPage() {
       .select("*")
       .order("name");
     if (data) setCategories(data as Category[]);
-  }, []);
+  }, [supabase]);
 
   const fetchStats = useCallback(async () => {
     const buildQuery = () =>
@@ -122,7 +122,7 @@ export default function FacultyEquipmentPage() {
       available: available || 0,
       inUse: borrowed || 0,
     });
-  }, [userDept]);
+  }, [supabase, userDept]);
 
   useEffect(() => {
     void (async () => {

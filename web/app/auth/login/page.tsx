@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
@@ -75,7 +76,7 @@ export default function LoginPage() {
           <div className="relative flex w-[320px] flex-col justify-between overflow-hidden p-[50px_38px]" style={{ background: "#2c3e50" }}>
             <div>
               <div className="mb-[22px] flex h-[52px] w-[52px] items-center justify-center rounded-md border border-white/10 bg-white/10">
-                <img src="/images/logo-main.png" alt="ECP" className="h-14 w-14 object-contain" />
+                <Image src="/images/logo-main.png" alt="ECP" width={56} height={56} className="h-14 w-14 object-contain" />
               </div>
               <h2 className="m-0 mb-2.5 text-[1.3rem] font-black tracking-tight text-white">
                 ECP Inventory Lab

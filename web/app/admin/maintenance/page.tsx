@@ -152,21 +152,21 @@ export default function MaintenancePage() {
     });
 
     setLoading(false);
-  }, [statusFilter, search]);
+  }, [supabase, statusFilter, search]);
 
-  const fetchEquipment = async () => {
+  const fetchEquipment = useCallback(async () => {
     const { data } = await supabase
       .from("equipment")
       .select("id, name")
       .order("name");
     if (data) setEquipmentList(data);
-  };
+  }, [supabase]);
 
   useEffect(() => {
     void (async () => {
       await fetchEquipment();
     })();
-  }, []);
+  }, [fetchEquipment]);
 
   useEffect(() => {
     void (async () => {

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -110,7 +111,7 @@ export default function BorrowPage() {
       }
     };
     fetchProfile();
-  }, []);
+  }, [supabase]);
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -125,7 +126,7 @@ export default function BorrowPage() {
       }
     };
     fetchSettings();
-  }, []);
+  }, [supabase]);
 
   const fetchEquipment = useCallback(async () => {
     setLoading(true);
@@ -150,7 +151,7 @@ export default function BorrowPage() {
     const { data } = await query;
     setEquipment((data as Equipment[]) || []);
     setLoading(false);
-  }, [categoryFilter, subcategoryFilter, search, userDept]);
+  }, [supabase, categoryFilter, subcategoryFilter, search, userDept]);
 
   const fetchCategories = useCallback(async () => {
     const { data } = await supabase
@@ -163,13 +164,13 @@ export default function BorrowPage() {
       .select("*")
       .order("name");
     if (subs) setSubcategories(subs as Subcategory[]);
-  }, []);
+  }, [supabase]);
 
   useEffect(() => {
     void (async () => {
       await fetchCategories();
     })();
-  }, []);
+  }, [fetchCategories]);
 
   useEffect(() => {
     void (async () => {
@@ -538,7 +539,7 @@ export default function BorrowPage() {
                     >
                       <div className="relative aspect-[4/3] w-full overflow-hidden bg-[#eef2f6]">
                         {eq.image_url ? (
-                          <img src={eq.image_url} alt={eq.name} className="h-full w-full object-cover" />
+                          <Image src={eq.image_url} alt={eq.name} fill unoptimized className="object-cover" />
                         ) : (
                           <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#0ea5a0] to-[#0b857f]">
                             <span className="text-6xl drop-shadow">{icon}</span>

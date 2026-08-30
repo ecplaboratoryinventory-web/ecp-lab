@@ -185,7 +185,7 @@ export default function DamageReportsPage() {
     });
 
     setLoading(false);
-  }, []);
+  }, [supabase]);
 
   useEffect(() => {
     void (async () => {

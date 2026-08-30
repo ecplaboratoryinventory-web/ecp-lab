@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Microscope, CheckCircle, Clock, HandHelping, History, AlertTriangle } from "lucide-react";
 import Link from "next/link";
@@ -34,7 +34,7 @@ export default function FacultyDashboardPage() {
 
   const CAT_COLORS = ["#378ADD", "#1D9E75", "#7F77DD", "#BA7517", "#D85A30", "#888780"];
 
-  const fetchAll = async () => {
+  const fetchAll = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
@@ -78,13 +78,13 @@ export default function FacultyDashboardPage() {
     setNotifications(notifs || []);
 
     setLoading(false);
-  };
+  }, [supabase]);
 
   useEffect(() => {
     void (async () => {
       await fetchAll();
     })();
-  }, []);
+  }, [fetchAll]);
 
   useEffect(() => {
     const channel = supabase
@@ -92,7 +92,7 @@ export default function FacultyDashboardPage() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'equipment' }, () => fetchAll())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, []);
+  }, [supabase, fetchAll]);
 
   useEffect(() => {
     const channel = supabase
@@ -100,7 +100,7 @@ export default function FacultyDashboardPage() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'borrow_requests' }, () => fetchAll())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, []);
+  }, [supabase, fetchAll]);
 
   if (loading) {
     return (

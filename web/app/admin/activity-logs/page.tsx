@@ -135,7 +135,7 @@ export default function ActivityLogsPage() {
     }
     setTotalCount(count || 0);
     setLoading(false);
-  }, [dateFrom, dateTo, search, actionFilter, page]);
+  }, [supabase, dateFrom, dateTo, search, actionFilter, page]);
 
   const fetchChartData = useCallback(async () => {
     const { data: logData } = await supabase
@@ -201,7 +201,7 @@ export default function ActivityLogsPage() {
           .map(([name, value]) => ({ name, value })),
       );
     }
-  }, []);
+  }, [supabase]);
 
   useEffect(() => {
     void (async () => {

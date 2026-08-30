@@ -74,7 +74,9 @@ export function FacultyHeader({ title = "Dashboard" }: { title?: string }) {
   }, []);
 
   useEffect(() => {
-    fetchNotifications();
+    (async () => {
+      await fetchNotifications();
+    })();
   }, [fetchNotifications]);
 
   useEffect(() => {

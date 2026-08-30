@@ -108,26 +108,6 @@ function HistoryContent() {
     null,
   );
 
-  const [userDept, setUserDept] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchDepartment = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data: profile } = await supabase
-        .from("users")
-        .select("department")
-        .eq("id", user.id)
-        .single();
-      if (profile?.department) {
-        setUserDept(profile.department);
-      }
-    };
-    fetchDepartment();
-  }, []);
-
   const fetchRequests = useCallback(async () => {
     setLoading(true);
 
@@ -184,7 +164,7 @@ function HistoryContent() {
     setRequests(result);
     setTotalCount(count || 0);
     setLoading(false);
-  }, [dateFrom, dateTo, statusFilter, searchTerm, page, userDept]);
+  }, [supabase, dateFrom, dateTo, statusFilter, searchTerm, page]);
 
   const fetchStats = useCallback(async () => {
     const {
@@ -213,7 +193,7 @@ function HistoryContent() {
       active: active || 0,
       returned: returned || 0,
     });
-  }, []);
+  }, [supabase]);
 
   useEffect(() => {
     void (async () => {

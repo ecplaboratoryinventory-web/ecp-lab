@@ -29,7 +29,7 @@ import {
   Check,
   Loader2,
 } from "lucide-react";
-import { adminNotifications, studentNotifications, facultyNotifications } from "@/lib/notification-templates";
+import { adminNotifications, studentNotifications } from "@/lib/notification-templates";
 import { notifyRole } from "@/lib/notifications";
 
 interface User {
@@ -112,7 +112,7 @@ export default function ApprovalsPage() {
     const { data } = await query;
     setRequests((data as BorrowRequest[]) || []);
     setLoading(false);
-  }, [activeTab]);
+  }, [supabase, activeTab]);
 
   const fetchStats = useCallback(async () => {
     const now = new Date();
@@ -151,7 +151,7 @@ export default function ApprovalsPage() {
       approvedToday: approvedToday || 0,
       totalThisMonth: totalThisMonth || 0,
     });
-  }, []);
+  }, [supabase]);
 
   useEffect(() => {
     void (async () => {
@@ -171,7 +171,7 @@ export default function ApprovalsPage() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'borrow_requests' }, () => fetchData())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, []);
+  }, [supabase, fetchData]);
 
   const reload = () => {
     fetchData();

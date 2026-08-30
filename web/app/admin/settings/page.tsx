@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "@/components/shared/toast";
 import { Button } from "@/components/ui/button";
@@ -11,17 +10,13 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   User,
   Settings,
-  LogOut,
   Save,
   Key,
-  PackageCheck,
-  Clock,
   Loader2,
 } from "lucide-react";
-import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { QuantityStepper } from "@/components/ui/quantity-stepper";
 
 export default function AdminSettingsPage() {
-  const router = useRouter();
   const supabase = createClient();
 
   const [userId, setUserId] = useState("");
@@ -39,21 +34,10 @@ export default function AdminSettingsPage() {
   });
   const [passwordSaving, setPasswordSaving] = useState(false);
 
-  const [totalBorrowed, setTotalBorrowed] = useState(0);
-  const [currentlyBorrowed, setCurrentlyBorrowed] = useState(0);
-
   const [systemName, setSystemName] = useState("");
   const [borrowDuration, setBorrowDuration] = useState("7");
   const [maxItemsPerBorrow, setMaxItemsPerBorrow] = useState("5");
   const [systemSaving, setSystemSaving] = useState(false);
-
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [confirmAction, setConfirmAction] = useState<(() => void) | null>(null);
-
-  const withConfirm = (action: () => void) => {
-    setConfirmAction(() => action);
-    setConfirmOpen(true);
-  };
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -71,7 +55,7 @@ export default function AdminSettingsPage() {
       }
     };
     fetchSettings();
-  }, []);
+  }, [supabase]);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -95,20 +79,6 @@ export default function AdminSettingsPage() {
       const name = userData?.full_name ?? "";
       setFullName(name);
       setProfileForm({ full_name: name, email: user.email ?? "" });
-
-      const { count: total } = await supabase
-        .from("borrow_requests")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", user.id);
-
-      const { count: active } = await supabase
-        .from("borrow_requests")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", user.id)
-        .eq("status", "borrowed");
-
-      setTotalBorrowed(total ?? 0);
-      setCurrentlyBorrowed(active ?? 0);
 
       setLoading(false);
     };
@@ -199,13 +169,6 @@ export default function AdminSettingsPage() {
     }
 
     setPasswordSaving(false);
-  };
-
-  const handleLogout = () => {
-    withConfirm(async () => {
-      await supabase.auth.signOut();
-      router.push("/auth/login");
-    });
   };
 
   const handleSystemSave = async () => {
@@ -405,49 +368,6 @@ export default function AdminSettingsPage() {
                   </div>
                 </div>
               </div>
-
-              <div className="space-y-6">
-                <div className="ecp-card p-6 border-0 shadow-none">
-                  <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-silver">
-                    Account Stats
-                  </h3>
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3 rounded-lg border border-[#dde4ec] bg-[#f8f9fa] p-4">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-light">
-                        <PackageCheck className="h-5 w-5 text-teal" />
-                      </div>
-                      <div>
-                        <p className="text-2xl font-bold text-navy">
-                          {totalBorrowed}
-                        </p>
-                        <p className="text-xs text-silver">Total Borrowed</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 rounded-lg border border-[#dde4ec] bg-[#f8f9fa] p-4">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-50">
-                        <Clock className="h-5 w-5 text-amber-500" />
-                      </div>
-                      <div>
-                        <p className="text-2xl font-bold text-navy">
-                          {currentlyBorrowed}
-                        </p>
-                        <p className="text-xs text-silver">
-                          Currently Borrowed
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <Button
-                  variant="outline"
-                  onClick={handleLogout}
-                  className="w-full gap-2 border-red-200 text-red-500 hover:bg-red-50"
-                >
-                  <LogOut className="h-4 w-4" />
-                  Logout
-                </Button>
-              </div>
             </div>
           </TabsContent>
 
@@ -468,13 +388,12 @@ export default function AdminSettingsPage() {
                 <label className="text-xs font-medium text-slate">
                   Borrow Duration Limit (days)
                 </label>
-                <Input
-                  type="number"
-                  min="1"
-                  max="365"
-                  value={borrowDuration}
-                  onChange={(e) => setBorrowDuration(e.target.value)}
-                  className="mt-1 border-[#dde4ec]"
+                <QuantityStepper
+                  value={parseInt(borrowDuration, 10) || 1}
+                  onChange={(value) => setBorrowDuration(String(value))}
+                  min={1}
+                  max={365}
+                  className="mt-2"
                 />
                 <p className="mt-1 text-[11px] text-silver">
                   Maximum number of days a single borrow can span.
@@ -484,13 +403,12 @@ export default function AdminSettingsPage() {
                 <label className="text-xs font-medium text-slate">
                   Max Items Per Borrow
                 </label>
-                <Input
-                  type="number"
-                  min="1"
-                  max="100"
-                  value={maxItemsPerBorrow}
-                  onChange={(e) => setMaxItemsPerBorrow(e.target.value)}
-                  className="mt-1 border-[#dde4ec]"
+                <QuantityStepper
+                  value={parseInt(maxItemsPerBorrow, 10) || 1}
+                  onChange={(value) => setMaxItemsPerBorrow(String(value))}
+                  min={1}
+                  max={100}
+                  className="mt-2"
                 />
                 <p className="mt-1 text-[11px] text-silver">
                   Maximum equipment items per borrow request.
@@ -512,15 +430,6 @@ export default function AdminSettingsPage() {
           </TabsContent>
         </Tabs>
       </div>
-      <ConfirmDialog
-        open={confirmOpen}
-        onOpenChange={setConfirmOpen}
-        title="Logout?"
-        description="Are you sure you want to logout?"
-        confirmLabel="Logout"
-        variant="danger"
-        onConfirm={() => { confirmAction?.(); setConfirmOpen(false); }}
-      />
     </>
   );
 }

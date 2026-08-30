@@ -44,7 +44,7 @@ export default function FacultyLayout({ children }: { children: React.ReactNode 
       setChecking(false);
     };
     fetch();
-  }, []);
+  }, [supabase, router]);
 
   if (checking) {
     return (

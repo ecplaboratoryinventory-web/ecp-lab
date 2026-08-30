@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Bell, ChevronDown, ChevronUp, Megaphone } from "lucide-react";
 
@@ -29,7 +29,7 @@ export default function FacultyAnnouncementsPage() {
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
-  const fetchAnnouncements = async () => {
+  const fetchAnnouncements = useCallback(async () => {
     const { data } = await supabase
       .from("announcements")
       .select("*")
@@ -39,13 +39,13 @@ export default function FacultyAnnouncementsPage() {
 
     setAnnouncements((data as Announcement[]) || []);
     setLoading(false);
-  };
+  }, [supabase]);
 
   useEffect(() => {
     void (async () => {
       await fetchAnnouncements();
     })();
-  }, []);
+  }, [fetchAnnouncements]);
 
   const toggleExpand = (id: string) => {
     setExpanded((prev) => {

@@ -102,7 +102,7 @@ export default function NotificationsPage() {
 
     setUnreadCount(unread || 0);
     setLoading(false);
-  }, []);
+  }, [supabase]);
 
   useEffect(() => {
     void (async () => {
@@ -116,7 +116,7 @@ export default function NotificationsPage() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => fetchNotifications())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, []);
+  }, [supabase, fetchNotifications]);
 
   const handleMarkAsRead = async (id: string) => {
     await supabase.from("notifications").update({ is_read: true }).eq("id", id);
