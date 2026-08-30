@@ -143,9 +143,6 @@ export default function DamageReportsPage() {
   const [replaceOpen, setReplaceOpen] = useState(false);
   const [replaceReport, setReplaceReport] = useState<DamageReport | null>(null);
   const [replaceQty, setReplaceQty] = useState(0);
-  const [replacementDate, setReplacementDate] = useState(
-    new Date().toISOString().slice(0, 10)
-  );
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<(() => void) | null>(null);
@@ -283,7 +280,6 @@ export default function DamageReportsPage() {
   const openReplace = (report: DamageReport) => {
     setReplaceReport(report);
     setReplaceQty(getRemaining(report));
-    setReplacementDate(new Date().toISOString().slice(0, 10));
     setReplaceOpen(true);
   };
 
@@ -303,7 +299,7 @@ export default function DamageReportsPage() {
       .update({
         status: newStatus,
         replaced_quantity: newReplaced,
-        replaced_at: replacementDate,
+        replaced_at: new Date().toISOString(),
         resolved_by: userId,
         resolution_notes:
           newStatus === "resolved"
@@ -750,9 +746,9 @@ export default function DamageReportsPage() {
                       </Label>
                       <Input
                         type="date"
-                        value={replacementDate}
-                        onChange={(e) => setReplacementDate(e.target.value)}
-                        className="mt-1 border-[#dde4ec]"
+                        value={new Date().toISOString().slice(0, 10)}
+                        readOnly
+                        className="mt-1 border-[#dde4ec] bg-[#f8f9fa] text-silver"
                       />
                     </div>
 

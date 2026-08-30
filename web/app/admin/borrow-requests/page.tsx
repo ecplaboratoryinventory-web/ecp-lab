@@ -110,15 +110,15 @@ const DAMAGE_TYPE_TO_SEVERITY: Record<string, "minor" | "major" | "critical"> = 
 };
 
 type RequestType = "all" | "student" | "faculty";
-type StatusFilter = "all" | "pending" | "approved" | "borrowed" | "returned" | "denied" | "return_requested" | "damaged" | "overdue";
+type StatusFilter = "all" | "pending" | "borrowed" | "returned" | "rejected" | "return_requested" | "damaged" | "overdue";
 
 const STATUS_VARIANTS: Record<string, { label: string; className: string }> = {
   pending: { label: "Pending", className: "bg-amber-100 text-amber-700" },
   approved: { label: "Approved", className: "bg-blue-100 text-blue-700" },
   borrowed: { label: "Borrowed", className: "bg-indigo-100 text-indigo-700" },
   returned: { label: "Returned", className: "bg-green-100 text-green-700" },
-  denied: { label: "Denied", className: "bg-red-100 text-red-700" },
-  rejected: { label: "Denied", className: "bg-red-100 text-red-700" },
+  denied: { label: "Rejected", className: "bg-red-100 text-red-700" },
+  rejected: { label: "Rejected", className: "bg-red-100 text-red-700" },
   return_requested: { label: "Return Requested", className: "bg-teal-100 text-teal-700" },
   damaged: { label: "Damaged", className: "bg-red-100 text-red-700" },
 };
@@ -126,13 +126,12 @@ const STATUS_VARIANTS: Record<string, { label: string; className: string }> = {
 const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: "all", label: "All" },
   { value: "pending", label: "Pending" },
-  { value: "approved", label: "Approved" },
   { value: "borrowed", label: "Borrowed" },
   { value: "overdue", label: "Overdue" },
-  { value: "return_requested", label: "Return Requested" },
+  { value: "return_requested", label: "Return Request" },
   { value: "returned", label: "Returned" },
   { value: "damaged", label: "Damaged" },
-  { value: "denied", label: "Denied" },
+  { value: "rejected", label: "Rejected" },
 ];
 
 export default function BorrowRequestsPage() {
@@ -199,7 +198,7 @@ export default function BorrowRequestsPage() {
     }
 
     if (statusFilter !== "all") {
-      if (statusFilter === "denied") {
+      if (statusFilter === "rejected") {
         query = query.in("status", ["denied", "rejected"]);
       } else if (statusFilter === "overdue") {
         query = query.in("status", ["approved", "borrowed"]);
