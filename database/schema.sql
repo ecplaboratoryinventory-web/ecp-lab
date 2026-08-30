@@ -151,6 +151,8 @@ CREATE TABLE damage_reports (
   status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'resolved', 'partial', 'dismissed')),
   resolved_by UUID REFERENCES users(id),
   replaced_quantity INTEGER NOT NULL DEFAULT 0,
+  replaced_at TIMESTAMPTZ,
+  damage_type TEXT CHECK (damage_type IS NULL OR damage_type IN ('minor_damage', 'major_damage', 'missing_parts', 'lost')),
   resolution_notes TEXT,
   image_urls TEXT[],
   created_at TIMESTAMPTZ DEFAULT now(),

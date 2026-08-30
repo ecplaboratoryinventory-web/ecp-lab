@@ -92,7 +92,22 @@ interface DamageItemInfo {
   equipmentId: string;
   equipmentName: string;
   condition: string;
+  damageType: string;
 }
+
+const DAMAGE_TYPES: { value: string; label: string }[] = [
+  { value: "minor_damage", label: "Minor Damage" },
+  { value: "major_damage", label: "Major Damage" },
+  { value: "missing_parts", label: "Missing Parts" },
+  { value: "lost", label: "Lost" },
+];
+
+const DAMAGE_TYPE_TO_SEVERITY: Record<string, "minor" | "major" | "critical"> = {
+  minor_damage: "minor",
+  major_damage: "major",
+  missing_parts: "major",
+  lost: "critical",
+};
 
 type RequestType = "all" | "student" | "faculty";
 type StatusFilter = "all" | "pending" | "approved" | "borrowed" | "returned" | "denied" | "return_requested" | "damaged" | "overdue";
@@ -139,7 +154,6 @@ export default function BorrowRequestsPage() {
   const [damageOpen, setDamageOpen] = useState(false);
   const [damageItems, setDamageItems] = useState<DamageItemInfo[]>([]);
   const [damageDescription, setDamageDescription] = useState("");
-  const [damageSeverity, setDamageSeverity] = useState<"minor" | "major" | "critical">("minor");
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<(() => void) | null>(null);
@@ -493,27 +507,35 @@ export default function BorrowRequestsPage() {
       equipmentId: bi.equipment_id,
       equipmentName: bi.equipment?.name || "Unknown",
       condition: bi.condition_on_return || "damaged",
+      damageType: "minor_damage",
     }));
     setDamageItems(items);
     setDamageDescription("");
-    setDamageSeverity("minor");
     setDamageOpen(true);
+  };
+
+  const updateDamageItem = (index: number, field: keyof DamageItemInfo, value: string) => {
+    setDamageItems((prev) =>
+      prev.map((item, i) => (i === index ? { ...item, [field]: value } : item))
+    );
   };
 
   const handleDamageSubmit = async () => {
     if (!selectedRequest || !damageDescription.trim()) return;
 
     for (const item of damageItems) {
+      const severity = DAMAGE_TYPE_TO_SEVERITY[item.damageType] || "minor";
       const { data: report } = await supabase.from("damage_reports").insert({
         user_id: selectedRequest.user_id,
         equipment_id: (selectedRequest.borrow_items || []).find((bi) => bi.id === item.borrowItemId)?.equipment_id,
         borrow_request_id: selectedRequest.id,
         description: damageDescription,
-        severity: damageSeverity,
+        damage_type: item.damageType,
+        severity,
         status: "pending",
       }).select("id").single();
       if (report) {
-        logActivity(undefined, "damage_report", "damage_report", report.id, { severity: damageSeverity, equipment_id: item.equipmentId });
+        logActivity(undefined, "damage_report", "damage_report", report.id, { damage_type: item.damageType, severity, equipment_id: item.equipmentId });
         // Notify admin
         const summary = damageItems.map((di) => di.equipmentName).join(", ");
         const studentName = selectedRequest.users?.full_name || "Student";
@@ -1090,25 +1112,49 @@ export default function BorrowRequestsPage() {
                   <p className="mb-1 text-xs font-medium uppercase text-silver">
                     Affected Equipment
                   </p>
-                  <ul className="rounded-lg border border-[#dde4ec] bg-[#f8f9fa]">
-                    {damageItems.map((item) => (
-                      <li
+                  <div className="space-y-3">
+                    {damageItems.map((item, index) => (
+                      <div
                         key={item.borrowItemId}
-                        className="border-b border-[#dde4ec] px-3 py-2 text-sm last:border-0"
+                        className="rounded-lg border border-[#dde4ec] p-3"
                       >
-                        <span className="font-medium text-navy">{item.equipmentName}</span>
-                        <Badge
-                          className={`ml-2 ${
-                            item.condition === "lost"
-                              ? "bg-red-100 text-red-700"
-                              : "bg-amber-100 text-amber-700"
-                          }`}
-                        >
-                          {item.condition}
-                        </Badge>
-                      </li>
+                        <div className="mb-2 flex items-center justify-between">
+                          <span className="font-medium text-navy">{item.equipmentName}</span>
+                          <Badge
+                            className={
+                              item.condition === "lost"
+                                ? "bg-red-100 text-red-700"
+                                : "bg-amber-100 text-amber-700"
+                            }
+                          >
+                            {item.condition}
+                          </Badge>
+                        </div>
+                        <div>
+                          <Label className="text-xs font-medium text-slate">
+                            Select Damage Type
+                          </Label>
+                          <Select
+                            value={item.damageType}
+                            onValueChange={(value) =>
+                              updateDamageItem(index, "damageType", value || "minor_damage")
+                            }
+                          >
+                            <SelectTrigger className="mt-1 w-full border-[#dde4ec]">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {DAMAGE_TYPES.map((t) => (
+                                <SelectItem key={t.value} value={t.value}>
+                                  {t.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
                     ))}
-                  </ul>
+                  </div>
                 </div>
 
                 <div>
@@ -1122,27 +1168,6 @@ export default function BorrowRequestsPage() {
                     rows={3}
                     className="mt-1 border-[#dde4ec]"
                   />
-                </div>
-
-                <div>
-                  <Label className="text-xs font-medium text-slate">
-                    Severity
-                  </Label>
-                  <Select
-                    value={damageSeverity}
-                    onValueChange={(value) =>
-                      setDamageSeverity(value as "minor" | "major" | "critical")
-                    }
-                  >
-                    <SelectTrigger className="mt-1 w-full border-[#dde4ec]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="minor">Minor</SelectItem>
-                      <SelectItem value="major">Major</SelectItem>
-                      <SelectItem value="critical">Critical</SelectItem>
-                    </SelectContent>
-                  </Select>
                 </div>
               </div>
             )}

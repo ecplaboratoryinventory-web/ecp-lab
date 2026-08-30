@@ -12,3 +12,4 @@ ALTER TABLE damage_reports ADD CONSTRAINT damage_reports_status_check
   CHECK (status IN ('pending', 'resolved', 'partial', 'dismissed'));
 
 ALTER TABLE damage_reports ADD COLUMN IF NOT EXISTS replaced_quantity INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE damage_reports ADD COLUMN IF NOT EXISTS replaced_at TIMESTAMPTZ;

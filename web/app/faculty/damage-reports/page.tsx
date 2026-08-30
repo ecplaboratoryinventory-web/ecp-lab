@@ -25,6 +25,7 @@ interface DamageReport {
   borrow_request_id: string | null;
   description: string;
   severity: "minor" | "major" | "critical";
+  damage_type: string | null;
   status: "pending" | "resolved" | "partial" | "dismissed";
   replaced_quantity: number;
   resolved_by: string | null;
@@ -77,6 +78,13 @@ const SEVERITY_LABEL: Record<string, string> = {
   minor: "Minor",
   major: "Major",
   critical: "Critical",
+};
+
+const DAMAGE_TYPE_LABEL: Record<string, string> = {
+  minor_damage: "Minor Damage",
+  major_damage: "Major Damage",
+  missing_parts: "Missing Parts",
+  lost: "Lost",
 };
 
 function FilterPills({
@@ -443,10 +451,16 @@ export default function FacultyDamageReportsPage() {
                           </td>
                           <td className="px-3 py-2 text-center text-navy">{getQty(selectedReport)}</td>
                           <td className="px-3 py-2 text-silver">
-                            {SEVERITY_LABEL[selectedReport.severity] && (
+                            {DAMAGE_TYPE_LABEL[selectedReport.damage_type || ""] ? (
                               <span className="mr-1.5 rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-semibold text-amber-700">
-                                {SEVERITY_LABEL[selectedReport.severity]}
+                                {DAMAGE_TYPE_LABEL[selectedReport.damage_type || ""]}
                               </span>
+                            ) : (
+                              SEVERITY_LABEL[selectedReport.severity] && (
+                                <span className="mr-1.5 rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-semibold text-amber-700">
+                                  {SEVERITY_LABEL[selectedReport.severity]}
+                                </span>
+                              )
                             )}
                             {selectedReport.description || "—"}
                           </td>

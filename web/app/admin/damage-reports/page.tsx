@@ -21,6 +21,8 @@ import {
   Search,
   FileText,
   RefreshCw,
+  Minus,
+  Plus,
 } from "lucide-react";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { createNotification } from "@/lib/notifications";
@@ -33,11 +35,12 @@ interface DamageReport {
   borrow_request_id: string | null;
   description: string;
   severity: "minor" | "major" | "critical";
+  damage_type: string | null;
   status: "pending" | "resolved" | "partial" | "dismissed";
   replaced_quantity: number;
   resolved_by: string | null;
   created_at: string;
-  users?: { full_name: string } | null;
+  users?: { full_name: string; role?: string } | null;
   equipment?: {
     name: string;
     department: string | null;
@@ -88,6 +91,13 @@ const SEVERITY_LABEL: Record<string, string> = {
   critical: "Critical",
 };
 
+const DAMAGE_TYPE_LABEL: Record<string, string> = {
+  minor_damage: "Minor Damage",
+  major_damage: "Major Damage",
+  missing_parts: "Missing Parts",
+  lost: "Lost",
+};
+
 function FilterPills({
   options,
   value,
@@ -133,6 +143,9 @@ export default function DamageReportsPage() {
   const [replaceOpen, setReplaceOpen] = useState(false);
   const [replaceReport, setReplaceReport] = useState<DamageReport | null>(null);
   const [replaceQty, setReplaceQty] = useState(0);
+  const [replacementDate, setReplacementDate] = useState(
+    new Date().toISOString().slice(0, 10)
+  );
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<(() => void) | null>(null);
@@ -158,7 +171,7 @@ export default function DamageReportsPage() {
       .from("damage_reports")
       .select(
         `*,
-        users:user_id(full_name),
+        users:user_id(full_name, role),
         equipment:equipment_id(name, department, category_id, categories:category_id(name)),
         resolved:resolved_by(full_name),
         borrow_request:borrow_request_id(borrow_items(equipment_id, quantity))`
@@ -270,6 +283,7 @@ export default function DamageReportsPage() {
   const openReplace = (report: DamageReport) => {
     setReplaceReport(report);
     setReplaceQty(getRemaining(report));
+    setReplacementDate(new Date().toISOString().slice(0, 10));
     setReplaceOpen(true);
   };
 
@@ -289,6 +303,7 @@ export default function DamageReportsPage() {
       .update({
         status: newStatus,
         replaced_quantity: newReplaced,
+        replaced_at: replacementDate,
         resolved_by: userId,
         resolution_notes:
           newStatus === "resolved"
@@ -568,10 +583,16 @@ export default function DamageReportsPage() {
                           </td>
                           <td className="px-3 py-2 text-center text-navy">{getQty(selectedReport)}</td>
                           <td className="px-3 py-2 text-silver">
-                            {SEVERITY_LABEL[selectedReport.severity] && (
+                            {DAMAGE_TYPE_LABEL[selectedReport.damage_type || ""] ? (
                               <span className="mr-1.5 rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-semibold text-amber-700">
-                                {SEVERITY_LABEL[selectedReport.severity]}
+                                {DAMAGE_TYPE_LABEL[selectedReport.damage_type || ""]}
                               </span>
+                            ) : (
+                              SEVERITY_LABEL[selectedReport.severity] && (
+                                <span className="mr-1.5 rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-semibold text-amber-700">
+                                  {SEVERITY_LABEL[selectedReport.severity]}
+                                </span>
+                              )
                             )}
                             {selectedReport.description || "—"}
                           </td>
@@ -633,105 +654,131 @@ export default function DamageReportsPage() {
               </DialogDescription>
             </DialogHeader>
 
-            {replaceReport && (
-              <div className="space-y-5">
-                <div>
-                  <h4 className="mb-2 text-xs font-bold uppercase tracking-wider text-navy">
-                    Borrower Information
-                  </h4>
-                  <div className="overflow-hidden rounded-md border border-[#dde4ec]">
-                    <table className="w-full text-sm">
-                      <tbody>
-                        {[
-                          { k: "Borrower", v: replaceReport.users?.full_name || "Unknown" },
-                          { k: "Category", v: getCategory(replaceReport) },
-                          { k: "Date Reported", v: formatDate(replaceReport.created_at) },
-                        ].map((row) => (
-                          <tr key={row.k} className="border-b border-[#f0f0f0] last:border-0">
-                            <td className="w-40 bg-[#f8f9fa] px-3 py-2 font-semibold text-navy">
-                              {row.k}
-                            </td>
-                            <td className="px-3 py-2 text-navy">{row.v}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+            {replaceReport &&
+              (() => {
+                const isPartial = replaceReport.status === "partial";
+                const remaining = getRemaining(replaceReport);
+                const role = replaceReport.users?.role
+                  ? replaceReport.users.role.charAt(0).toUpperCase() +
+                    replaceReport.users.role.slice(1)
+                  : "—";
+                return (
+                  <div className="space-y-5">
+                    <div>
+                      <h4 className="mb-2 text-xs font-bold uppercase tracking-wider text-navy">
+                        Borrower Information
+                      </h4>
+                      <div className="overflow-hidden rounded-md border border-[#dde4ec]">
+                        <table className="w-full table-fixed text-sm">
+                          <tbody>
+                            {[
+                              { k: "Borrower", v: replaceReport.users?.full_name || "Unknown" },
+                              { k: "Role", v: role },
+                              { k: "Category", v: getCategory(replaceReport) },
+                              { k: "Date Reported", v: formatDate(replaceReport.created_at) },
+                            ].map((row) => (
+                              <tr key={row.k} className="border-b border-[#f0f0f0] last:border-0">
+                                <td className="w-36 bg-[#f8f9fa] px-3 py-2 font-semibold text-navy">
+                                  {row.k}
+                                </td>
+                                <td className="px-3 py-2 text-navy">{row.v}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h4 className="mb-2 text-xs font-bold uppercase tracking-wider text-navy">
+                        Damaged Equipment
+                      </h4>
+                      <div className="overflow-hidden rounded-md border border-[#dde4ec]">
+                        <table className="w-full table-fixed text-sm">
+                          <thead>
+                            <tr className="bg-[#eef1f4] text-xs font-semibold uppercase tracking-wider text-navy">
+                              <th className="px-3 py-2 text-left">Equipment</th>
+                              <th className="px-3 py-2 text-center">
+                                {isPartial ? "Remaining Qty." : "Damaged Qty."}
+                              </th>
+                              <th className="px-3 py-2 text-center">Replace Qty</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr className="border-b border-[#f0f0f0] last:border-0">
+                              <td className="px-3 py-2 font-medium text-navy">
+                                {replaceReport.equipment?.name || "-"}
+                              </td>
+                              <td className="px-3 py-2 text-center text-navy">
+                                {isPartial ? remaining : getQty(replaceReport)}
+                              </td>
+                              <td className="px-3 py-2">
+                                <div className="flex items-center justify-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => setReplaceQty((q) => Math.max(1, q - 1))}
+                                    disabled={replaceQty <= 1}
+                                    className="flex h-7 w-7 items-center justify-center rounded-md border border-[#dde4ec] text-navy hover:border-teal hover:text-teal disabled:opacity-40"
+                                  >
+                                    <Minus className="h-3 w-3" />
+                                  </button>
+                                  <span className="w-8 text-center text-sm font-semibold text-navy">
+                                    {replaceQty}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setReplaceQty((q) => Math.min(remaining, q + 1))}
+                                    disabled={replaceQty >= remaining}
+                                    className="flex h-7 w-7 items-center justify-center rounded-md border border-[#dde4ec] text-navy hover:border-teal hover:text-teal disabled:opacity-40"
+                                  >
+                                    <Plus className="h-3 w-3" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                      <p className="mt-1.5 text-xs text-silver">
+                        {remaining} item(s) remaining
+                      </p>
+                    </div>
+
+                    <div>
+                      <Label className="text-xs font-medium text-slate">
+                        Replacement Date
+                      </Label>
+                      <Input
+                        type="date"
+                        value={replacementDate}
+                        onChange={(e) => setReplacementDate(e.target.value)}
+                        className="mt-1 border-[#dde4ec]"
+                      />
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-1">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setReplaceOpen(false);
+                          setReplaceReport(null);
+                          setReplaceQty(0);
+                        }}
+                        className="border-[#dde4ec]"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={handleConfirmReplace}
+                        disabled={replaceQty < 1 || replaceQty > remaining}
+                        className="gap-1.5 bg-green-500 hover:bg-green-600"
+                      >
+                        <CheckCircle className="h-4 w-4" /> Confirm Replacement
+                      </Button>
+                    </div>
                   </div>
-                </div>
-
-                <div>
-                  <h4 className="mb-2 text-xs font-bold uppercase tracking-wider text-navy">
-                    Damaged Equipment
-                  </h4>
-                  <div className="overflow-hidden rounded-md border border-[#dde4ec]">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="bg-[#eef1f4] text-xs font-semibold uppercase tracking-wider text-navy">
-                          <th className="px-3 py-2">Equipment</th>
-                          <th className="px-3 py-2 text-center">Damaged Qty.</th>
-                          <th className="px-3 py-2 text-center">Replaced</th>
-                          <th className="px-3 py-2 text-center">Remaining</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr className="border-b border-[#f0f0f0] last:border-0">
-                          <td className="px-3 py-2 font-medium text-navy">
-                            {replaceReport.equipment?.name || "-"}
-                          </td>
-                          <td className="px-3 py-2 text-center text-navy">{getQty(replaceReport)}</td>
-                          <td className="px-3 py-2 text-center text-navy">
-                            {getReplacedQty(replaceReport)}
-                          </td>
-                          <td className="px-3 py-2 text-center font-semibold text-navy">
-                            {getRemaining(replaceReport)}
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                <div>
-                  <Label className="text-xs font-medium text-slate">
-                    Replace Qty <span className="text-red-400">*</span>
-                  </Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={getRemaining(replaceReport)}
-                    value={replaceQty}
-                    onChange={(e) =>
-                      setReplaceQty(Math.max(0, parseInt(e.target.value) || 0))
-                    }
-                    className="mt-1 border-[#dde4ec]"
-                  />
-                  <p className="mt-1 text-xs text-silver">
-                    {getRemaining(replaceReport)} item(s) remaining
-                  </p>
-                </div>
-
-                <div className="flex justify-end gap-2 pt-1">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setReplaceOpen(false);
-                      setReplaceReport(null);
-                      setReplaceQty(0);
-                    }}
-                    className="border-[#dde4ec]"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={handleConfirmReplace}
-                    disabled={replaceQty < 1 || replaceQty > getRemaining(replaceReport)}
-                    className="gap-1.5 bg-green-500 hover:bg-green-600"
-                  >
-                    <CheckCircle className="h-4 w-4" /> Confirm Replacement
-                  </Button>
-                </div>
-              </div>
-            )}
+                );
+              })()}
           </DialogContent>
         </Dialog>
       </div>
