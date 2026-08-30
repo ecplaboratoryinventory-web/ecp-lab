@@ -83,6 +83,7 @@ export default function BorrowPage() {
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
+  const [preSelectedApplied, setPreSelectedApplied] = useState(false);
 
   const [purpose, setPurpose] = useState("");
   const [borrowDate, setBorrowDate] = useState(
@@ -177,6 +178,32 @@ export default function BorrowPage() {
       await fetchEquipment();
     })();
   }, [fetchEquipment]);
+
+  useEffect(() => {
+    if (preSelectedApplied || loading || equipment.length === 0) return;
+    void (async () => {
+      await Promise.resolve();
+      const params = new URLSearchParams(window.location.search);
+      const eqParam = params.get("eq");
+      if (eqParam) {
+        const ids = eqParam.split(",").filter(Boolean);
+        const valid = equipment.filter((e) => ids.includes(e.id));
+        if (valid.length > 0) {
+          const items: SelectedItem[] = valid.map((e) => ({
+            equipment_id: e.id,
+            equipment_name: e.name,
+            available_quantity: e.available_quantity,
+            quantity: 1,
+            notes: "",
+          }));
+          setSelectedIds(new Set(valid.map((e) => e.id)));
+          setSelectedItems(items);
+          setStep(1);
+        }
+      }
+      setPreSelectedApplied(true);
+    })();
+  }, [equipment, loading, preSelectedApplied]);
 
   const toggleSelect = (eq: Equipment) => {
     setSelectedIds((prev) => {
