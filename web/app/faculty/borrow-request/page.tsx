@@ -406,6 +406,12 @@ export default function BorrowPage() {
       ? subcategories.filter((s) => visibleCategoryIds.has(s.category_id))
       : subcategories.filter((s) => s.category_id === categoryFilter);
 
+  // Only show the category/subcategory filter chips when the faculty member's
+  // department maps to more than one category (e.g. Science -> Chemistry,
+  // Physics). Departments with a single category (e.g. Engineering ->
+  // Electronics) don't need the filter UI.
+  const showCategoryFilters = visibleCategories.length > 1;
+
   return (
     <Toaster>
       <div>
@@ -454,39 +460,41 @@ export default function BorrowPage() {
 
         {step === 0 && (
           <div>
-            <div className="mb-4 flex flex-wrap gap-2">
-              <button
-                onClick={() => {
-                  setCategoryFilter("all");
-                  setSubcategoryFilter("all");
-                }}
-                className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all ${
-                  categoryFilter === "all"
-                    ? "border-teal bg-teal text-white"
-                    : "border-[#dde4ec] bg-white text-silver hover:border-teal hover:text-teal"
-                }`}
-              >
-                All Categories
-              </button>
-              {visibleCategories.map((c) => (
+            {showCategoryFilters && (
+              <div className="mb-4 flex flex-wrap gap-2">
                 <button
-                  key={c.id}
                   onClick={() => {
-                    setCategoryFilter(c.id);
+                    setCategoryFilter("all");
                     setSubcategoryFilter("all");
                   }}
                   className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all ${
-                    categoryFilter === c.id
+                    categoryFilter === "all"
                       ? "border-teal bg-teal text-white"
                       : "border-[#dde4ec] bg-white text-silver hover:border-teal hover:text-teal"
                   }`}
                 >
-                  {c.name}
+                  All Categories
                 </button>
-              ))}
-            </div>
+                {visibleCategories.map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => {
+                      setCategoryFilter(c.id);
+                      setSubcategoryFilter("all");
+                    }}
+                    className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all ${
+                      categoryFilter === c.id
+                        ? "border-teal bg-teal text-white"
+                        : "border-[#dde4ec] bg-white text-silver hover:border-teal hover:text-teal"
+                    }`}
+                  >
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+            )}
 
-            {visibleSubcategories.length > 0 && (
+            {showCategoryFilters && visibleSubcategories.length > 0 && (
               <div className="mb-4 flex flex-wrap gap-2">
                 <button
                   onClick={() => setSubcategoryFilter("all")}
