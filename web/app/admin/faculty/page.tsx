@@ -243,7 +243,7 @@ export default function FacultyPage() {
       return;
     }
     if (!form.id_no.trim()) {
-      toast({ title: "Validation Error", description: "ID Number is required.", variant: "error" });
+      toast({ title: "Validation Error", description: "Employee # is required.", variant: "error" });
       return;
     }
     if (!form.department) {
@@ -269,7 +269,7 @@ export default function FacultyPage() {
         .eq("id_no", form.id_no.trim())
         .maybeSingle();
       if (existingId && existingId.id !== editingId) {
-        toast({ title: "Validation Error", description: "ID Number already exists!", variant: "error" });
+        toast({ title: "Validation Error", description: "Employee # already exists!", variant: "error" });
         return;
       }
     }
@@ -362,7 +362,7 @@ export default function FacultyPage() {
       f.department || "",
       f.status || "",
     ]);
-    const csv = ["First Name,Last Name,Middle Name,Email,ID Number,Department,Status", ...rows.map((r) => r.join(","))].join("\n");
+    const csv = ["First Name,Last Name,Middle Name,Email,Employee Number,Department,Status", ...rows.map((r) => r.join(","))].join("\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -500,17 +500,18 @@ export default function FacultyPage() {
     { label: "Science Faculty", value: stats.science, icon: Users, color: "#0ea5a0", filterType: "science" as const },
   ];
 
-  const getRoleBadge = (dept: string | null) => {
-    const isEngineering = dept === "Engineering";
+  const getRoleBadge = (role: string | null) => {
+    const normalized = (role || "faculty").toLowerCase();
+    const isFaculty = normalized === "faculty";
     return (
       <Badge
         className={
-          isEngineering
+          isFaculty
             ? "bg-blue-100 text-blue-700 hover:bg-blue-100"
             : "bg-teal-light text-teal hover:bg-teal-light"
         }
       >
-        {isEngineering ? "Engineering" : "Science"} Faculty
+        {isFaculty ? "Faculty" : role}
       </Badge>
     );
   };
@@ -636,11 +637,10 @@ export default function FacultyPage() {
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-[#dde4ec] bg-[#f8f9fa] text-xs font-semibold uppercase tracking-wider text-silver">
-                  <th className="px-4 py-3 w-20">ID #</th>
+                  <th className="px-4 py-3">Employee #</th>
                   <th className="px-4 py-3">Full Name</th>
                   <th className="px-4 py-3">Email</th>
                   <th className="px-4 py-3">Department</th>
-                  <th className="px-4 py-3">ID Number</th>
                   <th className="px-4 py-3">Role</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3 text-right">Actions</th>
@@ -650,12 +650,11 @@ export default function FacultyPage() {
                 {loading ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <tr key={i} className="border-b border-[#f0f0f0]">
-                      <td className="px-4 py-3"><Skeleton className="h-4 w-12" /></td>
+                      <td className="px-4 py-3"><Skeleton className="h-4 w-24" /></td>
                       <td className="px-4 py-3"><Skeleton className="h-4 w-36" /></td>
                       <td className="px-4 py-3"><Skeleton className="h-4 w-44" /></td>
                       <td className="px-4 py-3"><Skeleton className="h-4 w-24" /></td>
-                      <td className="px-4 py-3"><Skeleton className="h-4 w-20" /></td>
-                      <td className="px-4 py-3"><Skeleton className="h-5 w-28 rounded-full" /></td>
+                      <td className="px-4 py-3"><Skeleton className="h-5 w-16 rounded-full" /></td>
                       <td className="px-4 py-3"><Skeleton className="h-5 w-16 rounded-full" /></td>
                       <td className="px-4 py-3">
                         <div className="flex justify-end gap-1">
@@ -668,7 +667,7 @@ export default function FacultyPage() {
                   ))
                 ) : paginatedFaculty.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-16 text-center">
+                    <td colSpan={7} className="px-4 py-16 text-center">
                       <div className="flex flex-col items-center gap-2">
                         <Users className="h-10 w-10 text-silver/40" />
                         <p className="text-sm font-medium text-silver">No faculty found</p>
@@ -683,7 +682,7 @@ export default function FacultyPage() {
                 ) : (
                   paginatedFaculty.map((f) => (
                     <tr key={f.id} className="border-b border-[#f0f0f0] hover:bg-[#f8f9fa]">
-                      <td className="px-4 py-3 font-mono text-xs text-silver">#{f.id.slice(0, 8)}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-silver">{f.id_no || "-"}</td>
                       <td className="px-4 py-3 font-medium text-navy">
                         <button
                           type="button"
@@ -695,8 +694,7 @@ export default function FacultyPage() {
                       </td>
                       <td className="px-4 py-3 text-silver">{f.email}</td>
                       <td className="px-4 py-3 text-silver">{f.department || "-"}</td>
-                      <td className="px-4 py-3 font-mono text-xs text-silver">{f.id_no || "-"}</td>
-                      <td className="px-4 py-3">{getRoleBadge(f.department)}</td>
+                      <td className="px-4 py-3">{getRoleBadge(f.role)}</td>
                       <td className="px-4 py-3">{getStatusBadge(f.status)}</td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex justify-end gap-1">
@@ -785,8 +783,8 @@ export default function FacultyPage() {
                 <Input value={form.middlename} onChange={(e) => setForm({ ...form, middlename: e.target.value })} className="mt-1 border-[#dde4ec]" placeholder="Santos" />
               </div>
               <div>
-                <label className="text-xs font-medium text-slate">ID Number <span className="text-red-500">*</span></label>
-                <Input value={form.id_no} onChange={(e) => setForm({ ...form, id_no: e.target.value })} className="mt-1 border-[#dde4ec]" placeholder="F12345" />
+                <label className="text-xs font-medium text-slate">Employee # <span className="text-red-500">*</span></label>
+                <Input value={form.id_no} onChange={(e) => setForm({ ...form, id_no: e.target.value.replace(/\D/g, "").slice(0, 10) })} className="mt-1 border-[#dde4ec]" placeholder="10-digit ID number" inputMode="numeric" />
               </div>
               <div className="col-span-2">
                 <label className="text-xs font-medium text-slate">Email <span className="text-red-500">*</span></label>
@@ -852,7 +850,7 @@ export default function FacultyPage() {
                       {viewingFaculty.full_name || `${viewingFaculty.firstname || ""} ${viewingFaculty.lastname || ""}`.trim() || "Unknown"}
                     </p>
                     <div className="mt-1 flex items-center gap-2">
-                      {getRoleBadge(viewingFaculty.department)}
+                      {getRoleBadge(viewingFaculty.role)}
                       {getStatusBadge(viewingFaculty.status)}
                     </div>
                   </div>
@@ -863,7 +861,7 @@ export default function FacultyPage() {
                     <p className="mt-0.5 font-medium text-navy">{viewingFaculty.email}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-medium uppercase text-silver">ID Number</p>
+                    <p className="text-xs font-medium uppercase text-silver">Employee #</p>
                     <p className="mt-0.5 font-mono text-sm text-navy">{viewingFaculty.id_no || "-"}</p>
                   </div>
                   <div className="col-span-2">
