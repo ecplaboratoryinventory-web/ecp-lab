@@ -49,3 +49,4 @@ test-credentials.txt
 # Local dev tooling
 .opencode/
 debug_bridge.js
+.vercel
