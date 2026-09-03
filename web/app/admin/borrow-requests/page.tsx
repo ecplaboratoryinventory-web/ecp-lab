@@ -716,7 +716,7 @@ export default function BorrowRequestsPage() {
         <div className="relative mb-4">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-silver" />
           <Input
-            placeholder="Search by requester name..."
+            placeholder="Search by borrower name..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full max-w-md border-[#dde4ec] pl-10"
@@ -728,8 +728,8 @@ export default function BorrowRequestsPage() {
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-[#dde4ec] bg-[#f8f9fa] text-xs font-semibold uppercase tracking-wider text-silver">
-                  <th className="px-4 py-3">Requester</th>
-                  <th className="px-4 py-3">Type</th>
+                  <th className="px-4 py-3">Borrower</th>
+                  <th className="px-4 py-3">Role</th>
                   <th className="px-4 py-3">Items</th>
                   <th className="px-4 py-3">Borrow Date</th>
                   <th className="px-4 py-3">Return Date</th>
@@ -882,13 +882,13 @@ export default function BorrowRequestsPage() {
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <p className="text-xs font-medium uppercase text-silver">Requester</p>
+                    <p className="text-xs font-medium uppercase text-silver">Borrower</p>
                     <p className="mt-0.5 font-medium text-navy">
                       {selectedRequest.users?.full_name || "Unknown"}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs font-medium uppercase text-silver">Type</p>
+                    <p className="text-xs font-medium uppercase text-silver">Role</p>
                     <p className="mt-0.5">{getTypeBadge(selectedRequest.request_type)}</p>
                   </div>
                   <div>
