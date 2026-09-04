@@ -63,6 +63,38 @@ interface Subcategory {
 const CATEGORY_TABS = ["All", "Electronics", "Chemistry", "Physics"] as const;
 const CATEGORY_ORDER = ["Electronics", "Chemistry", "Physics"] as const;
 
+// Equipment import template fields (status/available_quantity are auto-set on import)
+const IMPORT_FIELD_LABELS: Record<string, string> = {
+  name: "Equipment Name",
+  category: "Category",
+  subcategory: "Subcategory",
+  quantity: "Quantity",
+  description: "Description",
+};
+
+const IMPORT_COLUMN_ALIASES: Record<string, string> = {
+  "equipment name": "name",
+  name: "name",
+  category: "category",
+  subcategory: "subcategory",
+  quantity: "quantity",
+  description: "description",
+};
+
+function buildImportColumnMap(rawHeaders: string[]): { keys: string[]; columnByKey: Record<string, number> } {
+  const keys: string[] = [];
+  const columnByKey: Record<string, number> = {};
+  rawHeaders.forEach((raw, idx) => {
+    const lower = raw.trim().toLowerCase().replace(/["\r]/g, "");
+    const key = IMPORT_COLUMN_ALIASES[lower];
+    if (key && columnByKey[key] === undefined) {
+      columnByKey[key] = idx;
+      keys.push(key);
+    }
+  });
+  return { keys, columnByKey };
+}
+
 export default function EquipmentPage() {
   const supabase = createClient();
 
@@ -216,18 +248,45 @@ export default function EquipmentPage() {
       }
     }
 
+    let merged = false;
     if (editingId) {
       const payload = { ...form, image_url: form.image_url ? form.image_url : null };
       await supabase.from("equipment").update(payload).eq("id", editingId);
       logActivity(undefined, "update", "equipment", editingId, { name: form.name });
     } else {
-      const payload = { ...form, status: "available", image_url: form.image_url ? form.image_url : null, available_quantity: form.quantity };
-      const { data } = await supabase.from("equipment").insert(payload).select("id").single();
-      logActivity(undefined, "create", "equipment", data?.id, { name: form.name });
+      // Merge into an existing identical item (same name + category + subcategory) when it is still Available
+      let dupQuery = supabase
+        .from("equipment")
+        .select("id, quantity, available_quantity, status")
+        .ilike("name", form.name.trim())
+        .eq("category_id", form.category_id)
+        .eq("status", "available");
+      if (form.subcategory_id) {
+        dupQuery = dupQuery.eq("subcategory_id", form.subcategory_id);
+      } else {
+        dupQuery = dupQuery.is("subcategory_id", null);
+      }
+      const { data: existing } = await dupQuery.maybeSingle();
+
+      if (existing) {
+        await supabase
+          .from("equipment")
+          .update({
+            quantity: (existing.quantity || 0) + form.quantity,
+            available_quantity: (existing.available_quantity || 0) + form.quantity,
+          })
+          .eq("id", existing.id);
+        logActivity(undefined, "update", "equipment", existing.id, { name: form.name, addedStock: form.quantity });
+        merged = true;
+      } else {
+        const payload = { ...form, status: "available", image_url: form.image_url ? form.image_url : null, available_quantity: form.quantity };
+        const { data } = await supabase.from("equipment").insert(payload).select("id").single();
+        logActivity(undefined, "create", "equipment", data?.id, { name: form.name });
+      }
     }
     setModalOpen(false);
     fetchData();
-    toast({ title: "Success", description: editingId ? "Equipment updated." : "Equipment added.", variant: "success" });
+    toast({ title: "Success", description: editingId ? "Equipment updated." : merged ? "Stock added to existing equipment." : "Equipment added.", variant: "success" });
   };
 
   const handleDelete = (id: string) => {
@@ -265,18 +324,11 @@ export default function EquipmentPage() {
   const handleDownloadTemplate = () => {
     downloadXlsxTemplate(
       [
-        "NAME",
-        "CATEGORY",
-        "SUBCATEGORY",
-        "QUANTITY",
-        "AVAILABLE_QUANTITY",
-        "SERIAL_NUMBER",
-        "BRAND",
-        "MODEL",
-        "LOCATION",
-        "CONDITION",
-        "DESCRIPTION",
-        "STATUS",
+        "Equipment Name",
+        "Category",
+        "Subcategory",
+        "Quantity",
+        "Description",
       ],
       "equipment_import_template.xlsx"
     );
@@ -302,11 +354,11 @@ export default function EquipmentPage() {
         return;
       }
       const headerRow = (aoa[0] || []).map((v) => String(v).trim());
-      const headers = headerRow.map((h) => h.toLowerCase().replace(/["\r]/g, ""));
-      setCsvHeaders(headerRow);
+      const { keys: headers, columnByKey } = buildImportColumnMap(headerRow);
+      setCsvHeaders(headers);
       const missing = requiredColumns.filter((c) => !headers.includes(c));
       if (missing.length > 0) {
-        setCsvError(`Missing required columns: ${missing.join(", ")}. Required: name, category`);
+        setCsvError(`Missing required columns: ${missing.map((c) => IMPORT_FIELD_LABELS[c] || c).join(", ")}. Required: Equipment Name, Category`);
         return;
       }
       const rows: Record<string, string>[] = [];
@@ -314,8 +366,8 @@ export default function EquipmentPage() {
         const values = (aoa[i] || []).map((v) => String(v).trim());
         if (values.every((v) => v === "")) continue;
         const row: Record<string, string> = {};
-        headers.forEach((h, idx) => {
-          row[h] = values[idx] || "";
+        headers.forEach((key) => {
+          row[key] = values[columnByKey[key]] || "";
         });
         rows.push(row);
       }
@@ -334,12 +386,13 @@ export default function EquipmentPage() {
         setCsvError("CSV file must have a header row and at least one data row.");
         return;
       }
-      const headers = lines[0].split(",").map((h) => h.trim().toLowerCase().replace(/["\r]/g, ""));
-      setCsvHeaders(lines[0].split(",").map((h) => h.trim().replace(/["\r]/g, "")));
+      const rawHeaders = lines[0].split(",").map((h) => h.trim());
+      const { keys: headers, columnByKey } = buildImportColumnMap(rawHeaders);
+      setCsvHeaders(headers);
 
       const missing = requiredColumns.filter((c) => !headers.includes(c));
       if (missing.length > 0) {
-        setCsvError(`Missing required columns: ${missing.join(", ")}. Required: name, category`);
+        setCsvError(`Missing required columns: ${missing.map((c) => IMPORT_FIELD_LABELS[c] || c).join(", ")}. Required: Equipment Name, Category`);
         return;
       }
 
@@ -347,8 +400,8 @@ export default function EquipmentPage() {
       for (let i = 1; i < lines.length; i++) {
         const values = lines[i].split(",").map((v) => v.trim().replace(/["\r]/g, ""));
         const row: Record<string, string> = {};
-        headers.forEach((h, idx) => {
-          row[h] = values[idx] || "";
+        headers.forEach((key) => {
+          row[key] = values[columnByKey[key]] || "";
         });
         rows.push(row);
       }
@@ -424,18 +477,38 @@ export default function EquipmentPage() {
         category_id: categoryId || null,
         subcategory_id: subcategoryId,
         quantity: parseInt(row.quantity) || 1,
-        available_quantity: parseInt(row.available_quantity) || parseInt(row.quantity) || 1,
-        serial_number: row.serial_number?.trim() || null,
-        brand: row.brand?.trim() || null,
-        model: row.model?.trim() || null,
-        location: row.location?.trim() || null,
-        condition: row.condition?.trim().toLowerCase() || "good",
+        available_quantity: parseInt(row.quantity) || 1,
         description: row.description?.trim() || null,
-        status: row.status?.trim().toLowerCase() || "available",
+        status: "available",
       };
 
-      const { error } = await supabase.from("equipment").insert(equipmentRow);
-      if (!error) imported++;
+      // Merge into an existing identical item (same name + category + subcategory) when it is still Available
+      let dupQuery = supabase
+        .from("equipment")
+        .select("id, quantity, available_quantity, status")
+        .ilike("name", equipmentRow.name)
+        .eq("category_id", categoryId)
+        .eq("status", "available");
+      if (subcategoryId) {
+        dupQuery = dupQuery.eq("subcategory_id", subcategoryId);
+      } else {
+        dupQuery = dupQuery.is("subcategory_id", null);
+      }
+      const { data: existing } = await dupQuery.maybeSingle();
+
+      if (existing) {
+        const { error: updateError } = await supabase
+          .from("equipment")
+          .update({
+            quantity: (existing.quantity || 0) + equipmentRow.quantity,
+            available_quantity: (existing.available_quantity || 0) + equipmentRow.quantity,
+          })
+          .eq("id", existing.id);
+        if (!updateError) imported++;
+      } else {
+        const { error } = await supabase.from("equipment").insert(equipmentRow);
+        if (!error) imported++;
+      }
     }
 
     setImporting(false);
@@ -754,11 +827,11 @@ export default function EquipmentPage() {
           setCsvError("");
         }
       }}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle className="text-navy">Import Equipment</DialogTitle>
             <DialogDescription className="text-silver">
-              Upload a CSV or Excel (.xlsx) file. Required columns: name, category. Optional: quantity, serial_number, subcategory, status, description, and more.
+              Upload a CSV or Excel (.xlsx) file. Required columns: Equipment Name, Category. Optional: Subcategory, Quantity, Description. Imported equipment is automatically marked as Available.
             </DialogDescription>
           </DialogHeader>
 
@@ -794,14 +867,14 @@ export default function EquipmentPage() {
               <>
                 <div>
                   <p className="mb-2 text-xs font-medium text-silver">
-                    Preview ({csvPreview.length > 5 ? `first 5 of ${csvPreview.length}` : `${csvPreview.length}`} rows)
+                    Preview ({csvPreview.length > 5 ? `first 5 of ${csvPreview.length}` : csvPreview.length} row{csvPreview.length === 1 ? "" : "s"})
                   </p>
                   <div className="max-h-60 overflow-auto rounded-lg border border-[#dde4ec]">
-                    <table className="w-full text-left text-xs">
+                    <table className="w-full border-collapse text-left text-xs">
                       <thead>
                         <tr className="border-b border-[#dde4ec] bg-[#f8f9fa] font-semibold text-silver">
                           {csvHeaders.map((h, i) => (
-                            <th key={i} className="px-3 py-2">{h}</th>
+                            <th key={i} className="px-3 py-2">{IMPORT_FIELD_LABELS[h] || h}</th>
                           ))}
                         </tr>
                       </thead>
@@ -809,7 +882,7 @@ export default function EquipmentPage() {
                         {csvPreview.slice(0, 5).map((row, i) => (
                           <tr key={i} className="border-b border-[#f0f0f0] last:border-0">
                             {csvHeaders.map((h, j) => (
-                              <td key={j} className="px-3 py-2">{row[h.trim().toLowerCase().replace(/["\r]/g, "")] || "-"}</td>
+                              <td key={j} className="px-3 py-2">{row[h] || "-"}</td>
                             ))}
                           </tr>
                         ))}
