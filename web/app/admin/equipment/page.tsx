@@ -72,7 +72,6 @@ export default function EquipmentPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("All");
   const [subcategoryFilter, setSubcategoryFilter] = useState("all");
   const [modalOpen, setModalOpen] = useState(false);
@@ -110,7 +109,6 @@ export default function EquipmentPage() {
   const fetchData = useCallback(async () => {
     let query = supabase.from("equipment").select("*, categories(name), subcategories(name)");
 
-    if (statusFilter !== "all") query = query.eq("status", statusFilter);
     if (categoryFilter !== "All") {
       const cat = categories.find((c) => c.name === categoryFilter);
       if (cat) query = query.eq("category_id", cat.id);
@@ -127,7 +125,7 @@ export default function EquipmentPage() {
     const { count: damaged } = await supabase.from("equipment").select("*", { count: "exact", head: true }).eq("status", "damaged");
     setStats({ total: total || 0, available: available || 0, borrowed: borrowed || 0, damaged: damaged || 0 });
     setLoading(false);
-  }, [supabase, statusFilter, categoryFilter, subcategoryFilter, debouncedSearch, categories]);
+  }, [supabase, categoryFilter, subcategoryFilter, debouncedSearch, categories]);
 
   const fetchCategories = useCallback(async () => {
     const { data } = await supabase.from("categories").select("*").order("name");
@@ -450,13 +448,6 @@ export default function EquipmentPage() {
     toast({ title: "Import Complete", description: `${imported} of ${csvPreview.length} items imported.`, variant: "success" });
   };
 
-  const statuses = [
-    { value: "all", label: "All", count: stats.total },
-    { value: "available", label: "Available", count: stats.available },
-    { value: "borrowed", label: "Borrowed", count: stats.borrowed },
-    { value: "damaged", label: "Damaged", count: stats.damaged },
-  ];
-
   const selectedCategoryId =
     categoryFilter === "All"
       ? null
@@ -513,22 +504,6 @@ export default function EquipmentPage() {
                 </div>
               </div>
             </div>
-          ))}
-        </div>
-
-        <div className="mb-4 flex flex-wrap items-center gap-2">
-          {statuses.map((s) => (
-            <button
-              key={s.value}
-              onClick={() => setStatusFilter(s.value)}
-              className={`rounded-full border px-4 py-1.5 text-xs font-semibold transition-all ${
-                statusFilter === s.value
-                  ? "border-teal bg-teal-light text-teal"
-                  : "border-[#dde4ec] bg-white text-silver hover:border-teal hover:text-teal"
-              }`}
-            >
-              {s.label} <span className="ml-1 opacity-60">({s.count})</span>
-            </button>
           ))}
         </div>
 
