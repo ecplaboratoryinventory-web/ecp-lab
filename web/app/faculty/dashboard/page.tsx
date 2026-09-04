@@ -136,17 +136,6 @@ export default function FacultyDashboardPage() {
           <p className="text-[0.83rem] text-[#8fa1b3]">
             {userDept || "Faculty"} — Manage your laboratory activities and equipment borrowings
           </p>
-          <div className="mt-3.5 flex flex-wrap gap-2">
-            <Link href="/faculty/borrow" className="inline-flex items-center gap-1.5 rounded-lg bg-[#1b2b40] px-4 py-2 text-xs font-semibold text-white no-underline transition-colors hover:bg-[#0ea5a0]">
-              <HandHelping className="h-3.5 w-3.5" /> Borrow Equipment
-            </Link>
-            <Link href="/faculty/equipment" className="inline-flex items-center gap-1.5 rounded-lg border border-[#dde4ec] bg-transparent px-4 py-2 text-xs font-semibold text-[#1b2b40] no-underline transition-colors hover:border-[#0ea5a0] hover:text-[#0ea5a0]">
-              <Microscope className="h-3.5 w-3.5" /> Browse Equipment
-            </Link>
-            <Link href="/faculty/damage-reports" className="inline-flex items-center gap-1.5 rounded-lg border border-[#dde4ec] bg-transparent px-4 py-2 text-xs font-semibold text-[#1b2b40] no-underline transition-colors hover:border-[#0ea5a0] hover:text-[#0ea5a0]">
-              <AlertTriangle className="h-3.5 w-3.5" /> Damage Reports
-            </Link>
-          </div>
         </div>
         <div className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-xl bg-[#e0f7f6] text-[#0ea5a0] text-2xl">
           {userDept === "Science" ? <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18"/></svg> : <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>}

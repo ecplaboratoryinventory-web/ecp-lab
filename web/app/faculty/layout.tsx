@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   Microscope,
   HandHelping,
+  TriangleAlert,
   Bell,
   Settings,
 } from "lucide-react";
@@ -17,6 +18,7 @@ const navigation = [
   { title: "Dashboard", href: "/faculty/dashboard", icon: LayoutDashboard },
   { title: "Equipment", href: "/faculty/equipment", icon: Microscope },
   { title: "Borrowings", href: "/faculty/borrow", icon: HandHelping },
+  { title: "Damage Reports", href: "/faculty/damage-reports", icon: TriangleAlert },
   { title: "Notifications", href: "/faculty/notifications", icon: Bell },
   { title: "Settings", href: "/faculty/profile", icon: Settings },
 ];
