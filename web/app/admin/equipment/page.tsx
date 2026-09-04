@@ -223,7 +223,7 @@ export default function EquipmentPage() {
       await supabase.from("equipment").update(payload).eq("id", editingId);
       logActivity(undefined, "update", "equipment", editingId, { name: form.name });
     } else {
-      const payload = { ...form, image_url: form.image_url ? form.image_url : null, available_quantity: form.quantity };
+      const payload = { ...form, status: "available", image_url: form.image_url ? form.image_url : null, available_quantity: form.quantity };
       const { data } = await supabase.from("equipment").insert(payload).select("id").single();
       logActivity(undefined, "create", "equipment", data?.id, { name: form.name });
     }
@@ -703,17 +703,19 @@ export default function EquipmentPage() {
                   className="mt-2"
                 />
               </div>
-              <div>
-                <label className="text-xs font-medium text-slate">Status</label>
-                <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v || "available" })}>
-                  <SelectTrigger className="mt-1 border-[#dde4ec]"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="available">Available</SelectItem>
-                    <SelectItem value="borrowed">Borrowed</SelectItem>
-                    <SelectItem value="damaged">Damaged</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {editingId ? (
+                <div>
+                  <label className="text-xs font-medium text-slate">Status</label>
+                  <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v || "available" })}>
+                    <SelectTrigger className="mt-1 border-[#dde4ec]"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="available">Available</SelectItem>
+                      <SelectItem value="borrowed">Borrowed</SelectItem>
+                      <SelectItem value="damaged">Damaged</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : null}
               <div className="col-span-2">
                 <label className="text-xs font-medium text-slate">Description</label>
                 <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="mt-1 border-[#dde4ec]" placeholder="Brief description or notes" />
