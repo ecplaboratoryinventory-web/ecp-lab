@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Microscope, CheckCircle, Clock, HandHelping, History, AlertTriangle } from "lucide-react";
+import { Microscope, CheckCircle, Clock, HandHelping, History, AlertTriangle, Megaphone, CalendarDays } from "lucide-react";
 import Link from "next/link";
 
 interface FacultyBorrow {
@@ -21,6 +21,15 @@ interface FacultyNotification {
   message: string | null;
 }
 
+interface FacultyAnnouncement {
+  id: string;
+  title: string;
+  content: string | null;
+  priority: string | null;
+  published_at: string | null;
+  created_at: string | null;
+}
+
 export default function FacultyDashboardPage() {
   const supabase = createClient();
   const [loading, setLoading] = useState(true);
@@ -31,6 +40,7 @@ export default function FacultyDashboardPage() {
   const [categories, setCategories] = useState<{ name: string; count: number }[]>([]);
   const [maxCat, setMaxCat] = useState(1);
   const [notifications, setNotifications] = useState<FacultyNotification[]>([]);
+  const [announcements, setAnnouncements] = useState<FacultyAnnouncement[]>([]);
 
   const CAT_COLORS = ["#378ADD", "#1D9E75", "#7F77DD", "#BA7517", "#D85A30", "#888780"];
 
@@ -80,11 +90,41 @@ export default function FacultyDashboardPage() {
     setLoading(false);
   }, [supabase]);
 
+  const fetchAnnouncements = useCallback(async () => {
+    const { data } = await supabase
+      .from("announcements")
+      .select("id, title, content, priority, published_at, created_at")
+      .eq("is_active", true)
+      .or("target_role.eq.all,target_role.eq.faculty")
+      .order("created_at", { ascending: false })
+      .limit(20);
+    const sorted = ((data as FacultyAnnouncement[]) || [])
+      .sort(
+        (a, b) =>
+          new Date(b.published_at || b.created_at || 0).getTime() -
+          new Date(a.published_at || a.created_at || 0).getTime()
+      )
+      .slice(0, 3);
+    setAnnouncements(sorted);
+  }, [supabase]);
+
+  useEffect(() => {
+    void fetchAnnouncements();
+  }, [fetchAnnouncements]);
+
   useEffect(() => {
     void (async () => {
       await fetchAll();
     })();
   }, [fetchAll]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel("faculty-dashboard-announcements")
+      .on("postgres_changes", { event: "*", schema: "public", table: "announcements" }, () => fetchAnnouncements())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [supabase, fetchAnnouncements]);
 
   useEffect(() => {
     const channel = supabase
@@ -142,17 +182,69 @@ export default function FacultyDashboardPage() {
         </div>
       </div>
 
+      {/* Announcements (posted by Admin) */}
+      {announcements.length > 0 && (
+        <div className="mb-[22px] overflow-hidden rounded-xl border border-[#dde4ec] bg-white shadow-sm">
+          <div className="flex items-center justify-between border-b border-[#dde4ec] px-5 py-3.5">
+            <h5 className="m-0 flex items-center gap-2 text-[0.9rem] font-bold text-[#1b2b40]">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#e0f7f6] text-[#0ea5a0]">
+                <Megaphone className="h-3.5 w-3.5" />
+              </span>
+              Announcements
+            </h5>
+            <Link href="/faculty/announcements" className="text-[0.76rem] font-semibold text-[#0ea5a0] no-underline hover:underline">
+              View all →
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 gap-px bg-[#dde4ec] sm:grid-cols-3">
+            {announcements.map((a) => {
+              const priority = (a.priority || "normal").toLowerCase();
+              const isUrgent = priority === "urgent";
+              const isHigh = priority === "high";
+              return (
+                <div key={a.id} className="flex flex-col gap-2 bg-white p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <h6 className="text-[0.83rem] font-bold leading-snug text-[#1b2b40]">{a.title}</h6>
+                    {(isUrgent || isHigh) && (
+                      <span
+                        className={`shrink-0 rounded-[10px] px-2 py-0.5 text-[0.62rem] font-bold uppercase tracking-wide ${
+                          isUrgent ? "bg-[#fef2f2] text-[#991b1b]" : "bg-[#fff3cd] text-[#856404]"
+                        }`}
+                      >
+                        {priority}
+                      </span>
+                    )}
+                  </div>
+                  <p className="line-clamp-2 flex-1 text-[0.76rem] leading-relaxed text-[#4a5e74]">
+                    {a.content || ""}
+                  </p>
+                  <div className="flex items-center gap-1.5 text-[0.68rem] text-[#8fa1b3]">
+                    <CalendarDays className="h-3 w-3" />
+                    {new Date(a.published_at || a.created_at || "").toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Stats Grid */}
       <div className="mb-[22px] grid grid-cols-2 gap-3.5 sm:grid-cols-3 lg:grid-cols-4">
         {[
-          { label: "Total Equipment", sub: "In the laboratory", value: stats.total, icon: Microscope, color: "blue", iconBg: "#eff6ff", iconColor: "#3b82f6" },
-          { label: "Available", sub: "Ready for use", value: stats.available, icon: CheckCircle, color: "green", iconBg: "#ecfdf5", iconColor: "#10b981" },
-          { label: "Active Borrowings", sub: "Currently borrowed", value: stats.active, icon: Clock, color: "amber", iconBg: "#fffbeb", iconColor: "#f59e0b" },
-          { label: "Faculty Borrows", sub: "My direct borrowings", value: stats.faculty, icon: HandHelping, color: "teal", iconBg: "#e0f7f6", iconColor: "#0ea5a0" },
+          { label: "Total Equipment", sub: "In the laboratory", value: stats.total, icon: Microscope, color: "blue", iconBg: "#eff6ff", iconColor: "#3b82f6", href: "/faculty/equipment" },
+          { label: "Available", sub: "Ready for use", value: stats.available, icon: CheckCircle, color: "green", iconBg: "#ecfdf5", iconColor: "#10b981", href: "/faculty/equipment" },
+          { label: "Active Borrowings", sub: "Currently borrowed", value: stats.active, icon: Clock, color: "amber", iconBg: "#fffbeb", iconColor: "#f59e0b", href: "/faculty/history?status=borrowed" },
+          { label: "Faculty Borrows", sub: "My direct borrowings", value: stats.faculty, icon: HandHelping, color: "teal", iconBg: "#e0f7f6", iconColor: "#0ea5a0", href: "/faculty/history" },
         ].map((s) => (
-          <div
+          <Link
             key={s.label}
-            className="group relative block cursor-pointer overflow-hidden rounded-xl border border-[#dde4ec] bg-white p-[18px_20px] shadow-sm no-underline transition-all hover:-translate-y-[3px] hover:border-transparent hover:shadow-md"
+            href={s.href}
+            className="group relative block overflow-hidden rounded-xl border border-[#dde4ec] bg-white p-[18px_20px] shadow-sm no-underline transition-all hover:-translate-y-[3px] hover:border-transparent hover:shadow-md"
           >
             <div className="absolute top-0 left-0 right-0 h-[3px] rounded-t opacity-0 transition-opacity group-hover:opacity-100" style={{ background: s.iconColor }} />
             <div className="mb-3 flex h-[38px] w-[38px] items-center justify-center rounded-lg text-[0.95rem]" style={{ background: s.iconBg, color: s.iconColor }}>
@@ -161,7 +253,7 @@ export default function FacultyDashboardPage() {
             <div className="text-[1.7rem] font-bold leading-none text-[#1b2b40]">{stats.total > 0 || s.label !== "Total Equipment" ? s.value : stats.total}</div>
             <div className="mt-1 text-[0.73rem] font-medium text-[#8fa1b3]">{s.label}</div>
             <div className="mt-0.5 text-[0.7rem] text-[#8fa1b3]">{s.sub}</div>
-          </div>
+          </Link>
         ))}
       </div>
 
