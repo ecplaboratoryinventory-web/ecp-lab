@@ -95,6 +95,11 @@ function buildImportColumnMap(rawHeaders: string[]): { keys: string[]; columnByK
   return { keys, columnByKey };
 }
 
+function isAllowedMainCategory(value: string): boolean {
+  const v = value.trim().toLowerCase();
+  return CATEGORY_ORDER.some((c) => c.toLowerCase() === v);
+}
+
 export default function EquipmentPage() {
   const supabase = createClient();
 
@@ -371,6 +376,19 @@ export default function EquipmentPage() {
         });
         rows.push(row);
       }
+      const invalidCategories = [
+        ...new Set(
+          rows
+            .map((r) => (r.category || "").trim())
+            .filter((c) => c && !isAllowedMainCategory(c))
+        ),
+      ];
+      if (invalidCategories.length > 0) {
+        setCsvError(
+          `Unsupported main categor${invalidCategories.length === 1 ? "y" : "ies"}: ${invalidCategories.join(", ")}. Import only accepts: ${CATEGORY_ORDER.join(", ")}. Please fix the file and select it again.`
+        );
+        return;
+      }
       setCsvPreview(rows);
       return;
     }
@@ -405,6 +423,19 @@ export default function EquipmentPage() {
         });
         rows.push(row);
       }
+      const invalidCategories = [
+        ...new Set(
+          rows
+            .map((r) => (r.category || "").trim())
+            .filter((c) => c && !isAllowedMainCategory(c))
+        ),
+      ];
+      if (invalidCategories.length > 0) {
+        setCsvError(
+          `Unsupported main categor${invalidCategories.length === 1 ? "y" : "ies"}: ${invalidCategories.join(", ")}. Import only accepts: ${CATEGORY_ORDER.join(", ")}. Please fix the file and select it again.`
+        );
+        return;
+      }
       setCsvPreview(rows);
     };
     reader.readAsText(file);
@@ -414,11 +445,14 @@ export default function EquipmentPage() {
     if (csvPreview.length === 0) return;
     setImporting(true);
 
+    // Only the fixed main categories are accepted for import
     const categoryMap = new Map<string, string>();
     const { data: allCategories } = await supabase.from("categories").select("id, name");
     if (allCategories) {
       allCategories.forEach((c: { id: string; name: string }) => {
-        categoryMap.set(c.name.toLowerCase(), c.id);
+        if (CATEGORY_ORDER.some((f) => f.toLowerCase() === c.name.toLowerCase())) {
+          categoryMap.set(c.name.toLowerCase(), c.id);
+        }
       });
     }
 
@@ -431,22 +465,17 @@ export default function EquipmentPage() {
     }
 
     let imported = 0;
+    let skipped = 0;
     for (const row of csvPreview) {
       if (!row.name || !row.category) continue;
 
       const categoryName = row.category.trim().toLowerCase();
-      let categoryId = categoryMap.get(categoryName);
+      const categoryId = categoryMap.get(categoryName);
 
+      // Never auto-create main categories — rows with unsupported categories are skipped
       if (!categoryId) {
-        const { data: newCat } = await supabase
-          .from("categories")
-          .insert({ name: row.category.trim() })
-          .select("id")
-          .single();
-        if (newCat?.id) {
-          categoryId = newCat.id;
-          categoryMap.set(categoryName, categoryId!);
-        }
+        skipped++;
+        continue;
       }
 
       let subcategoryId: string | null = null;
@@ -517,8 +546,15 @@ export default function EquipmentPage() {
     setCsvHeaders([]);
     if (fileInputRef.current) fileInputRef.current.value = "";
     fetchData();
-    logActivity(undefined, "import", "equipment", undefined, { count: imported, total: csvPreview.length });
-    toast({ title: "Import Complete", description: `${imported} of ${csvPreview.length} items imported.`, variant: "success" });
+    logActivity(undefined, "import", "equipment", undefined, { count: imported, total: csvPreview.length, skipped });
+    toast({
+      title: "Import Complete",
+      description:
+        skipped > 0
+          ? `${imported} of ${csvPreview.length} items imported. ${skipped} skipped — unsupported category.`
+          : `${imported} of ${csvPreview.length} items imported.`,
+      variant: skipped > 0 ? "error" : "success",
+    });
   };
 
   const selectedCategoryId =
@@ -831,7 +867,7 @@ export default function EquipmentPage() {
           <DialogHeader>
             <DialogTitle className="text-navy">Import Equipment</DialogTitle>
             <DialogDescription className="text-silver">
-              Upload a CSV or Excel (.xlsx) file. Required columns: Equipment Name, Category. Optional: Subcategory, Quantity, Description. Imported equipment is automatically marked as Available.
+              Upload a CSV or Excel (.xlsx) file. Required columns: Equipment Name, Category. Optional: Subcategory, Quantity, Description. Only the main categories Electronics, Chemistry, and Physics are accepted. Imported equipment is automatically marked as Available.
             </DialogDescription>
           </DialogHeader>
 
